@@ -1,20 +1,24 @@
+import os
 import subprocess
 
-from pukpuk.core.mods import BaseModule
+from PIL import Image
+
+from pukpuk.core.mods import HttpModule
 from pukpuk.core import logging
 
 
-class Module(BaseModule):
+class Module(HttpModule):
 
     name = 'Grabber'
 
-    def _execute(self, url):
-        base_filename = url.replace('://', '_').replace(':', '-')[:-1] + '-' + self.main.now.strftime('%Y%m%d_%H%M')
+    def execute(self, url):
         user_agent = self.args['user_agent']
         executable = self.args['executable']
+        base_filename = self.get_base_filename(url, self.main.now)
+        image_filename = base_filename + '.png'
         try:
             subprocess.check_output(
-                [executable, '--headless', '--disable-gpu', '--window-size=1280,1696', '--v0', f'--screenshot={base_filename}.png', f'--user-agent={user_agent}', url],
+                [executable, '--headless', '--disable-gpu', '--window-size=1280,1696', '--v0', f'--screenshot={image_filename}', f'--user-agent={user_agent}', url],
                 stderr=subprocess.STDOUT,
                 timeout=self.args['process_timeout']
             )
@@ -24,6 +28,11 @@ class Module(BaseModule):
         except subprocess.TimeoutExpired:
             logging.logger.info(f'Screen grabbing timed out for {url} (try adjusting --process-timeout)')
         else:
+            with Image.open(image_filename) as img:
+                extrema = img.convert('L').getextrema()
+            if extrema[0] == extrema[1]:
+                os.remove(image_filename)
+                logging.logger.info(f'Blank screen for {url} returned, deleting image')
             logging.logger.info(f'Processed {url}')
 
     def extra_args(self, parser):

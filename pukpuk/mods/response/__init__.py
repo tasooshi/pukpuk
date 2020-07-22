@@ -1,15 +1,15 @@
 import requests
 
-from pukpuk.core.mods import BaseModule
+from pukpuk.core.mods import HttpModule
 from pukpuk.core import logging
 
 
-class Module(BaseModule):
+class Module(HttpModule):
 
     name = 'Response'
 
-    def _execute(self, url):
-        base_filename = url.replace('://', '_').replace(':', '-')[:-1] + '-' + self.main.now.strftime('%Y%m%d_%H%M')
+    def execute(self, url):
+        base_filename = self.get_base_filename(url, self.main.now)
         try:
             response = requests.get(url, verify=False, timeout=self.args['socket_timeout'], headers=self.main.headers)
         except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):

@@ -1,22 +1,21 @@
-import asyncio
-
 from pukpuk.core.logging import logger
 
 
 class BaseModule:
 
-    def init(self, args):
+    def init(self, args, main):
         logger.debug(f'Initializing {self.__module__}')
         self.args = args
-        self.main = None
-
-    def execute(self, main):
         self.main = main
-        self.main.loop.run_until_complete(asyncio.gather(
-            *[self.main.loop.run_in_executor(
-                self.main.executor, self._execute, url
-            ) for url in self.main.final_todos]
-        ))
+
+    def execute(self):
+        raise NotImplementedError
 
     def extra_args(self, parser):
         pass
+
+
+class HttpModule(BaseModule):
+
+    def get_base_filename(self, url, time):
+        return url.replace('://', '-').replace(':', '-')[:-1] + '-' + time.strftime('%Y%m%d_%H%M')

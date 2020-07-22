@@ -49,9 +49,14 @@
 
 * Chrome / Chromium for screen grabbing functionality
 
-## Planned features
+## Changelog
 
-* Checking for vulnerabilities
-* Concurrency improvements
-* Password bruteforcing
-* Database storage
+### 0.3
+
+* Graceful exit, cancelling steps
+* Remove blank screenshots
+* Added timestamp to default logging level
+
+### 0.2
+
+* Initial commit

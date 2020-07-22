@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
 import argparse
+import asyncio
+import atexit
+import concurrent.futures
+import concurrent.futures.thread
 from datetime import datetime
 import ipaddress
-import asyncio
-import concurrent.futures
+import socket
 import ssl
 import urllib3
-import socket
 
 import dns.resolver
 import dns.reversename
@@ -22,13 +24,14 @@ from pukpuk.core import (
 )
 
 
-__version__ = '0.2'
+__version__ = '0.3'
 
 
 urllib3.disable_warnings()
 ssl_ctx = ssl.create_default_context()
 ssl_ctx.check_hostname = False
 ssl_ctx.verify_mode = ssl.CERT_NONE
+atexit.unregister(concurrent.futures.thread._python_exit)
 
 
 class Main:
@@ -44,14 +47,14 @@ class Main:
             raise Exception('Provide --cidr or --hosts argument')
 
         self.ports = [arg_port.split('/') for arg_port in self.args.ports]
-        self.todos = dict(((ip, port[0], port[1]), list()) for ip in self.ips for port in self.ports)
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=args.workers)
+        self.discovered = dict()
+        self.urls = list()
         self.loop = asyncio.get_event_loop()
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.args.workers)
         self.now = datetime.now()
         self.modules = list()
         self.resolver = dns.resolver.Resolver()
         self.resolver.nameservers = [self.args.resolver]
-        self.final_todos = list()
         self.headers = requests.utils.default_headers()
         self.headers['User-Agent'] = self.args.user_agent
 
@@ -65,8 +68,9 @@ class Main:
             sock.settimeout(self.args.socket_timeout)
             sock.connect((ip, int(port)))
         except (OSError, TimeoutError, socket.timeout):
-            self.todos[(ip, port, proto)] = None
+            pass
         else:
+            self.discovered[(ip, port, proto)] = list()
             logging.logger.info(f'Discovered {ip}:{port}')
             # If HTTPS extract certificate details and add all extra host names to the list
             if proto == 'https':
@@ -83,7 +87,7 @@ class Main:
                                             int(alt)
                                         except ValueError:
                                             # That's right, append on exception
-                                            self.todos[(ip, port, proto)].append(alt)
+                                            self.discovered[(ip, port, proto)].append(alt)
                                         else:
                                             pass
                 except (OSError, ConnectionResetError, socket.timeout, ssl.SSLError):
@@ -91,7 +95,7 @@ class Main:
 
     def generate(self, base, alts):
         # Add the host and port combination
-        self.final_todos.append(self.build_url(*base))
+        self.urls.append(self.build_url(*base))
 
         # Add URL based on resolved name for that IP address
         try:
@@ -100,14 +104,24 @@ class Main:
             pass
         else:
             fqdn = response.rrset.items[0].to_text().rstrip('.')
-            self.final_todos.append(self.build_url(fqdn.lower(), base[1], base[2]))
+            self.urls.append(self.build_url(fqdn.lower(), base[1], base[2]))
 
         # Now all the alternative names
         for alt in alts:
-            self.final_todos.append(self.build_url(alt.lower(), base[1], base[2]))
+            self.urls.append(self.build_url(alt.lower(), base[1], base[2]))
 
     def prepare(self):
-        self.final_todos = list(set(self.final_todos))
+        self.urls = list(set(self.urls))
+
+    def run_tasks(self, tasks):
+        try:
+            self.loop = asyncio.get_event_loop()
+            self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.args.workers)
+            future = asyncio.gather(*tasks, return_exceptions=True)
+            self.loop.run_until_complete(future)
+        except KeyboardInterrupt:
+            logging.logger.info('Step canceled!')
+            [fut.cancel() for fut in tasks]
 
     def run(self, parser):
         # Initialize modules and check arguments
@@ -115,22 +129,20 @@ class Main:
             module = imports.class_import(module)()
             module.extra_args(parser)
             args = parser.parse_args()
-            module.init(vars(args))
+            module.init(vars(args), self)
             self.modules.append(module)
 
-        logging.logger.info(f'Looking for hosts...')
-        self.loop.run_until_complete(asyncio.gather(
-            *[self.loop.run_in_executor(
-                self.executor, self.discover, ip, port, proto
-            ) for ip in self.ips for port, proto in self.ports]
-        ))
+        logging.logger.info('Looking for hosts...')
+        futures = [
+            self.loop.run_in_executor(self.executor, self.discover, ip, port, proto) for ip in self.ips for port, proto in self.ports
+        ]
+        self.run_tasks(futures)
 
-        logging.logger.info(f'Generating URLs...')
-        self.loop.run_until_complete(asyncio.gather(
-            *[self.loop.run_in_executor(
-                self.executor, self.generate, base, alts
-            ) for base, alts in self.todos.items() if alts is not None]
-        ))
+        logging.logger.info('Generating URLs...')
+        futures = [
+            self.loop.run_in_executor(self.executor, self.generate, base, alts) for base, alts in self.discovered.items() if alts is not None
+        ]
+        self.run_tasks(futures)
 
         self.prepare()
 
@@ -138,7 +150,9 @@ class Main:
 
         # Now run the modules
         for module in self.modules:
-            module.execute(self)
+            self.run_tasks(
+                [self.loop.run_in_executor(self.executor, module.execute, url) for url in self.urls]
+            )
 
 
 def entry_point():
