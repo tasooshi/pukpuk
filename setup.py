@@ -2,7 +2,7 @@
 #######################################################################
 # License: GNU General Public License v3.0                            #
 # Homepage: https://github.com/tasooshi/pukpuk/                       #
-# Version: 0.3                                                        #
+# Version: 0.4                                                        #
 #######################################################################
 
 from __future__ import (
@@ -19,10 +19,10 @@ with open('README.md') as f:
 
 setuptools.setup(
     name='pukpuk',
-    version='0.3',
+    version='0.4',
     author='tasooshi',
     author_email='tasooshi@pm.me',
-    description='HTTP discovery toolkit',
+    description='HTTP services discovery toolkit',
     license='GNU General Public License v3.0',
     keywords=[
         'HTTP',

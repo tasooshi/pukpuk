@@ -1,6 +1,6 @@
 # pukpuk
 
-    ░▒▓ pukpuk ▓▒░ HTTP discovery toolkit
+    ░▒▓ pukpuk ▓▒░ HTTP services discovery toolkit
 
 ## Functionality
 
@@ -50,6 +50,15 @@
 * Chrome / Chromium for screen grabbing functionality
 
 ## Changelog
+
+### 0.4
+
+* Simplified usage: removed option to launch selected modules since there are only two for now
+* Creates directory for storing results by default
+* Saves logging output by default
+* Less detailed logging at info level
+* Adjusted default timeouts
+* Added usage examples
 
 ### 0.3
 

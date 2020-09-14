@@ -1,4 +1,5 @@
 import logging
+import pathlib
 import sys
 
 
@@ -11,7 +12,8 @@ handler = logging.StreamHandler(sys.stdout)
 logger.addHandler(handler)
 
 
-def init(loglevel):
+def init(loglevel, directory):
     handler.setLevel(loglevel)
     logger.setLevel(loglevel)
     handler.setFormatter(formatter[loglevel])
+    logger.addHandler(logging.FileHandler(filename=pathlib.Path(directory, 'pukpuk.log')))

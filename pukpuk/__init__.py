@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 
+from datetime import datetime
 import argparse
 import asyncio
 import atexit
 import concurrent.futures
 import concurrent.futures.thread
-from datetime import datetime
 import ipaddress
+import pathlib
 import socket
 import ssl
 import urllib3
 
+from OpenSSL import crypto
+import dns.exception
 import dns.resolver
 import dns.reversename
-import dns.exception
 import requests
-from OpenSSL import crypto
 
 import pukpuk
 from pukpuk.core import (
@@ -24,7 +25,7 @@ from pukpuk.core import (
 )
 
 
-__version__ = '0.3'
+__version__ = '0.4'
 
 
 urllib3.disable_warnings()
@@ -35,6 +36,11 @@ atexit.unregister(concurrent.futures.thread._python_exit)
 
 
 class Main:
+
+    DEFAULT_MODULES = [
+        'pukpuk.mods.response',
+        'pukpuk.mods.grabber',
+    ]
 
     def __init__(self, args):
         self.args = args
@@ -125,19 +131,21 @@ class Main:
 
     def run(self, parser):
         # Initialize modules and check arguments
-        for module in self.args.modules:
-            module = imports.class_import(module)()
+        for module_path in self.DEFAULT_MODULES:
+            module = imports.class_import(module_path)()
             module.extra_args(parser)
             args = parser.parse_args()
             module.init(vars(args), self)
             self.modules.append(module)
 
+        # Host discovery
         logging.logger.info('Looking for hosts...')
         futures = [
             self.loop.run_in_executor(self.executor, self.discover, ip, port, proto) for ip in self.ips for port, proto in self.ports
         ]
         self.run_tasks(futures)
 
+        # Generate list of URLs to be used with modules
         logging.logger.info('Generating URLs...')
         futures = [
             self.loop.run_in_executor(self.executor, self.generate, base, alts) for base, alts in self.discovered.items() if alts is not None
@@ -157,27 +165,58 @@ class Main:
 
 def entry_point():
 
+    def show_default(value):
+        display = ', '.join(value) if isinstance(value, list) else value
+        return f' (default: {display})'
+
     headers = requests.utils.default_headers()
     resolver = dns.resolver.Resolver(configure=True)
     resolver.nameservers = [resolver.nameservers[0]]
 
-    parser = argparse.ArgumentParser(description='HTTP screen grabber and response dumper.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    ARGUMENT_DEFAULTS = {
+        'workers': 6,
+        'user_agent': headers['User-Agent'],
+        'socket_timeout': 3,
+        'resolver': resolver.nameservers[0],
+        'process_timeout': 10,
+        'ports': ['80/http', '443/https'],
+        'executable': 'chromium',
+        'output_directory': datetime.now().strftime('%Y%m%d_%H%M') + '.pukpuk',
+    }
+
+    parser = argparse.ArgumentParser(
+        description='HTTP screen grabber and response dumper',
+        epilog=(
+            'Examples:\n\n'
+            '\t$ pukpuk -c 10.1.1.0/24 -ua "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" -p 80/http 81/http 443/https 8000/http 8080/http 8443/https\n\n'
+            '\t$ pukpuk -l hosts.txt -e /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome -ua "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15" -p 80/http 81/http 82/http 443/https 4443/https 1080/http 1443/https 8000/http 8001/http 8008/http 8080/http 8081/http 8088/http 8888/http 9000/http 9080/http 7443/https 8443/https 9443/https 10443/https 11443/https 12443/https\n\n'
+            '---'
+            '\n\n'
+        ),
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+    parser.print_usage = parser.print_help
+
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-c', '--cidr', help='CIDR notation, e.g. "10.0.0.0/24"')
-    group.add_argument('-l', '--hosts', help='IP list in a text file')
+    group.add_argument('-l', '--hosts', help='List of IP addresses, one host per line')
+    parser.add_argument('-o', '--output-directory', default=ARGUMENT_DEFAULTS['output_directory'], help='Path where results (text files, images) will be stored' + show_default(ARGUMENT_DEFAULTS['output_directory']))
     parser.add_argument('-d', '--debug', action='store_const', dest='loglevel', const=logging.logging.DEBUG, default=logging.logging.INFO)
-    parser.add_argument('-e', '--executable', default='chromium', help='E.g. "chrome"')
-    parser.add_argument('-m', '--modules', nargs='*', default=['pukpuk.mods.response'], help='Modules to be used')
-    parser.add_argument('-p', '--ports', nargs='+', default=['80/http', '443/https'], help='E.g. "-p 80/http 443/https 8000/http 8443/https"')
-    parser.add_argument('-pt', '--process-timeout', type=int, default=8, help='Process timeout in seconds')
-    parser.add_argument('-r', '--resolver', default=resolver.nameservers[0], help='DNS server')
-    parser.add_argument('-st', '--socket-timeout', type=int, default=2, help='Socket timeout in seconds')
-    parser.add_argument('-ua', '--user-agent', default=headers['User-Agent'], help='Custom user agent')
+    parser.add_argument('-e', '--executable', default=ARGUMENT_DEFAULTS['executable'], help='Browser binary path for headless screen grabbing' + show_default(ARGUMENT_DEFAULTS['executable']))
+    parser.add_argument('-p', '--ports', nargs='+', default=ARGUMENT_DEFAULTS['ports'], help='Port list for HTTP service discovery' + show_default(ARGUMENT_DEFAULTS['ports']))
+    parser.add_argument('-pt', '--process-timeout', type=int, default=ARGUMENT_DEFAULTS['process_timeout'], help='Process timeout in seconds' + show_default(ARGUMENT_DEFAULTS['process_timeout']))
+    parser.add_argument('-r', '--resolver', default=ARGUMENT_DEFAULTS['resolver'], help='DNS server' + show_default(ARGUMENT_DEFAULTS['resolver']))
+    parser.add_argument('-st', '--socket-timeout', type=int, default=ARGUMENT_DEFAULTS['socket_timeout'], help='Socket timeout in seconds' + show_default(ARGUMENT_DEFAULTS['socket_timeout']))
+    parser.add_argument('-ua', '--user-agent', default=ARGUMENT_DEFAULTS['user_agent'], help='Browser User-Agent header' + show_default(ARGUMENT_DEFAULTS['user_agent']))
     parser.add_argument('-v', '--version', action='version', version=pukpuk.__version__)
-    parser.add_argument('-w', '--workers', default=16, type=int, help='Number of concurrent workers')
+    parser.add_argument('-w', '--workers', default=ARGUMENT_DEFAULTS['workers'], type=int, help='Number of concurrent workers' + show_default(ARGUMENT_DEFAULTS['workers']))
     args, _ = parser.parse_known_args()
 
-    logging.init(args.loglevel)
+    # Create output directory
+    pathlib.Path(args.output_directory).mkdir(parents=True, exist_ok=True)
+
+    # Initiate logging
+    logging.init(args.loglevel, args.output_directory)
 
     main = Main(args)
     main.run(parser)
