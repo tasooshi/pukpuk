@@ -27,26 +27,27 @@
     * http://example.com:80/
     * https://example.com:443/
 * Next, for each of these URLs:
-    * Dump HTTP response headers (`-m pukpuk.mods.response`)
-    * Grab the screen using Chromium/Chrome (`-m pukpuk.mods.grabber`)
-* Save output to current directory
+    * Dump HTTP response headers (`pukpuk.mods.response`)
+    * Grab the screen using Chromium/Chrome (`pukpuk.mods.grabber`)
+* Save output to a directory
 
 ## Usage
 
-### HTTP response only, default OS nameserver, using `chromium` by default
+### Default OS nameserver, using `chromium` and default ports (80/http, 443/https) by default
 
-    pukpuk -c 10.0.0.0/24 -p 80/http 443/https 8000/http 8443/https
+    pukpuk -c 10.0.0.0/24
 
-### Custom nameserver, using `chrome.exe`
+### Custom nameserver and ports, using `chrome.exe`
 
-    pukpuk -c 10.0.0.0/24 -r 84.200.69.80 -m pukpuk.mods.response pukpuk.mods.grabber -e chrome.exe -p 80/http 443/https 8000/http 8443/https
+    pukpuk -c 10.0.0.0/24 -r 84.200.69.80 -e chrome.exe -p 80/http 443/https 8000/http 8443/https
 
 ### Use IP list instead of CIDR notation
 
-    pukpuk -l hosts.txt -p 80/http 443/https
+    pukpuk -l hosts.txt
 
 ## Requirements
 
+* Python 3.x
 * Chrome / Chromium for screen grabbing functionality
 
 ## Changelog
