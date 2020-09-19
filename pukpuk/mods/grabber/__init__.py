@@ -24,7 +24,7 @@ class Module(HttpModule):
                 timeout=self.args['process_timeout']
             )
         except FileNotFoundError:
-            logging.logger.error(f'Error. Is {executable} installed?')
+            logging.logger.error(f'Error occured when grabbing the screen. Is `{executable}` installed?')
             exit(1)
         except subprocess.TimeoutExpired:
             logging.logger.debug(f'Screen grabbing timed out for {url} (try adjusting --process-timeout)')

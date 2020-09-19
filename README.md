@@ -2,10 +2,32 @@
 
     ░▒▓ pukpuk ▓▒░ HTTP services discovery toolkit
 
-## Functionality
+## About
 
-* Screen and HTTP response grabber
-* Reverse DNS lookup and certificate parsing
+Pukpuk ("pook-pook") is a tool for discovering and monitoring HTTP services. It simply grabs screens and responses, and stores them in a directory. It is especially useful in the initial phase of any assignment to find vulnerable Web applications, forgotten devices, directories listing source code or backups. Results are easily greppable. When monitoring, a good practice is to store the results in a repository so it is easier to track changes. Apart from port scanning `pukpuk` also does reverse DNS lookup and certificate parsing. Quite often certificates reveal extra virtual hosts or domain names.
+
+## Requirements
+
+* Python 3.x
+* Chrome / Chromium for screen grabbing functionality
+
+## Usage
+
+### Default OS nameserver, using `chromium` and default ports (80/http, 443/https)
+
+    pukpuk -c 10.0.0.0/24
+
+### Custom nameserver and ports, using `chrome.exe`
+
+    pukpuk -c 10.0.0.0/24 -r 84.200.69.80 -e chrome.exe -p 80/http 443/https 8000/http 8443/https
+
+### Use IP list instead of CIDR notation
+
+    pukpuk -l hosts.txt
+
+### Or skip the discovery phase and provide a CSV file (format: 192.168.1.1,443,https)
+
+    pukpuk -i targets.csv
 
 ## Installation
 
@@ -19,38 +41,12 @@
 
     $ pip3 install pukpuk
 
-## How it works
-
-* For a given IP address (e.g. 10.10.10.1) and selected ports (e.g. 80/http 443/https) create a list of URLs:
-    * http://10.10.10.1:80/
-    * http://10.10.10.1:443/
-    * http://example.com:80/
-    * https://example.com:443/
-* Next, for each of these URLs:
-    * Dump HTTP response headers (`pukpuk.mods.response`)
-    * Grab the screen using Chromium/Chrome (`pukpuk.mods.grabber`)
-* Save output to a directory
-
-## Usage
-
-### Default OS nameserver, using `chromium` and default ports (80/http, 443/https) by default
-
-    pukpuk -c 10.0.0.0/24
-
-### Custom nameserver and ports, using `chrome.exe`
-
-    pukpuk -c 10.0.0.0/24 -r 84.200.69.80 -e chrome.exe -p 80/http 443/https 8000/http 8443/https
-
-### Use IP list instead of CIDR notation
-
-    pukpuk -l hosts.txt
-
-## Requirements
-
-* Python 3.x
-* Chrome / Chromium for screen grabbing functionality
-
 ## Changelog
+
+### 0.5
+
+* CSV input and discovery phase skipping
+* Minor improvements in logging and storing results
 
 ### 0.4
 
