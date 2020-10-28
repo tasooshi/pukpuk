@@ -43,6 +43,14 @@ Pukpuk ("pook-pook") is a tool for discovering and monitoring HTTP services. It 
 
 ## Changelog
 
+### 1.0
+
+* Updated Python requirements
+* Removed timestamps from file names, no longer needed and makes it easier to diff and track with source versioning
+* Strip whitespaces when loading CSV files
+* Results now end up in separate subdirectories named after modules
+* FIXED: Issue with loading from CSV files
+
 ### 0.5
 
 * CSV input and discovery phase skipping

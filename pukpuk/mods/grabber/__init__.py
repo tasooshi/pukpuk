@@ -15,7 +15,9 @@ class Module(HttpModule):
     def execute(self, url):
         user_agent = self.args['user_agent']
         executable = self.args['executable']
-        base_filename = pathlib.Path(self.args['output_directory'], self.get_base_filename(url, self.main.now))
+        mod_dir = pathlib.Path(self.args['output_directory'], self.name.lower())
+        mod_dir.mkdir(parents=True, exist_ok=True)
+        base_filename = pathlib.Path(mod_dir, self.get_base_filename(url))
         image_filename = str(base_filename) + '.png'
         try:
             subprocess.check_output(

@@ -17,5 +17,5 @@ class BaseModule:
 
 class HttpModule(BaseModule):
 
-    def get_base_filename(self, url, time):
-        return url.replace('://', '-').replace(':', '-')[:-1] + '-' + time.strftime('%Y%m%d_%H%M')
+    def get_base_filename(self, url):
+        return url.replace('://', '-').replace(':', '-')[:-1]

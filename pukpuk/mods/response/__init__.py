@@ -11,7 +11,9 @@ class Module(HttpModule):
     name = 'Response'
 
     def execute(self, url):
-        base_filename = pathlib.Path(self.args['output_directory'], self.get_base_filename(url, self.main.now))
+        mod_dir = pathlib.Path(self.args['output_directory'], self.name.lower())
+        mod_dir.mkdir(parents=True, exist_ok=True)
+        base_filename = pathlib.Path(mod_dir, self.get_base_filename(url))
         try:
             response = requests.get(url, verify=False, timeout=self.args['socket_timeout'], headers=self.main.headers)
         except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):

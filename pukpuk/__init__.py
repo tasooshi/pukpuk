@@ -26,7 +26,7 @@ from pukpuk.core import (
 )
 
 
-__version__ = '0.5'
+__version__ = '1.0'
 
 
 urllib3.disable_warnings()
@@ -61,7 +61,6 @@ class Main:
         self.urls = list()
         self.loop = asyncio.get_event_loop()
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.args.workers)
-        self.now = datetime.now()
         self.modules = list()
         self.resolver = dns.resolver.Resolver()
         self.resolver.nameservers = [self.args.resolver]
@@ -114,12 +113,17 @@ class Main:
         except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.exception.Timeout):
             pass
         else:
-            fqdn = response.rrset.items[0].to_text().rstrip('.')
-            self.urls.append(self.build_url(fqdn.lower(), base[1], base[2]))
+            try:
+                fqdn = response.rrset.items[0].to_text().rstrip('.')
+            except KeyError:
+                pass
+            else:
+                self.urls.append(self.build_url(fqdn.lower(), base[1], base[2]))
 
         # Now all the alternative names
-        for alt in alts:
-            self.urls.append(self.build_url(alt.lower(), base[1], base[2]))
+        if alts is not True:
+            for alt in alts:
+                self.urls.append(self.build_url(alt.lower(), base[1], base[2]))
 
     def prepare(self):
         self.urls = list(set(self.urls))
@@ -149,10 +153,10 @@ class Main:
                 list_reader = csv.reader(fil)
                 for row in list_reader:
                     # Assiging boolean here is both a bit ugly and inefficient, keeps interface consistent though
-                    self.discovered[row[0], row[1], row[2]] = True
+                    self.discovered[row[0], row[1], row[2].strip()] = True
         else:
             # Host discovery
-            logging.logger.info('Looking for hosts...')
+            logging.logger.info('Discovering...')
             futures = [
                 self.loop.run_in_executor(self.executor, self.discover, ip, port, proto) for ip in self.ips for port, proto in self.ports
             ]
@@ -168,6 +172,7 @@ class Main:
         self.prepare()
 
         logging.logger.info(f'Using DNS: {self.args.resolver}')
+        logging.logger.debug(f'URLs to be processed: {self.urls}')
 
         # Now run the modules
         for module in self.modules:
