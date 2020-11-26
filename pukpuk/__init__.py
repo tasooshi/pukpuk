@@ -27,7 +27,7 @@ from pukpuk.core import (
 )
 
 
-__version__ = '1.1'
+__version__ = '1.1.1'
 
 
 urllib3.disable_warnings()
@@ -62,6 +62,8 @@ class Main:
                 self.proxy = self.args.socks5_proxy.split(':')
             except Exception as exc:
                 raise exc
+        else:
+            self.proxy = None
 
         self.ports = [arg_port.split('/') for arg_port in self.args.ports]
         self.discovered = dict()

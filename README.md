@@ -86,6 +86,10 @@ optional arguments:
 
 ## Changelog
 
+### 1.1.1 (2020-11-26)
+
+* Hotfix
+
 ### 1.1 (2020-11-26)
 
 * Added support for SOCKS5 proxying
