@@ -10,6 +10,7 @@ import concurrent.futures.thread
 import ipaddress
 import pathlib
 import socket
+import socks
 import ssl
 import urllib3
 
@@ -26,7 +27,7 @@ from pukpuk.core import (
 )
 
 
-__version__ = '1.0'
+__version__ = '1.1'
 
 
 urllib3.disable_warnings()
@@ -56,6 +57,12 @@ class Main:
         elif not self.args.input_list:
             raise Exception('Provide --cidr or --hosts argument')
 
+        if self.args.socks5_proxy:
+            try:
+                self.proxy = self.args.socks5_proxy.split(':')
+            except Exception as exc:
+                raise exc
+
         self.ports = [arg_port.split('/') for arg_port in self.args.ports]
         self.discovered = dict()
         self.urls = list()
@@ -73,7 +80,9 @@ class Main:
     def discover(self, ip, port, proto):
         logging.logger.debug(f'Trying {ip}:{port}...')
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock = socks.socksocket(socket.AF_INET, socket.SOCK_STREAM)
+            if self.proxy:
+                sock.set_proxy(socks.SOCKS5, self.proxy[0], int(self.proxy[1]))
             sock.settimeout(self.args.socket_timeout)
             sock.connect((ip, int(port)))
         except (OSError, TimeoutError, socket.timeout):
@@ -110,7 +119,7 @@ class Main:
         # Add URL based on resolved name for that IP address
         try:
             response = self.resolver.query(dns.reversename.from_address(base[0]), 'PTR')
-        except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.exception.Timeout):
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout):
             pass
         else:
             try:
@@ -237,6 +246,7 @@ def entry_point():
     parser.add_argument('-pt', '--process-timeout', type=int, default=ARGUMENT_DEFAULTS['process_timeout'], help='Process timeout in seconds' + show_default(ARGUMENT_DEFAULTS['process_timeout']))
     parser.add_argument('-r', '--resolver', default=ARGUMENT_DEFAULTS['resolver'], help='DNS server' + show_default(ARGUMENT_DEFAULTS['resolver']))
     parser.add_argument('-st', '--socket-timeout', type=int, default=ARGUMENT_DEFAULTS['socket_timeout'], help='Socket timeout in seconds' + show_default(ARGUMENT_DEFAULTS['socket_timeout']))
+    parser.add_argument('-x', '--socks5-proxy', help='Socks5 proxy, e.g. "127.0.0.1:1080')
     parser.add_argument('-ua', '--user-agent', default=ARGUMENT_DEFAULTS['user_agent'], help='Browser User-Agent header' + show_default(ARGUMENT_DEFAULTS['user_agent']))
     parser.add_argument('-v', '--version', action='version', version=pukpuk.__version__)
     parser.add_argument('-w', '--workers', default=ARGUMENT_DEFAULTS['workers'], type=int, help='Number of concurrent workers' + show_default(ARGUMENT_DEFAULTS['workers']))

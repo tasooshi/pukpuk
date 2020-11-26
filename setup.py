@@ -2,7 +2,7 @@
 #######################################################################
 # License: GNU General Public License v3.0                            #
 # Homepage: https://github.com/tasooshi/pukpuk/                       #
-# Version: 1.0                                                        #
+# Version: 1.1                                                        #
 #######################################################################
 
 from __future__ import (
@@ -19,7 +19,7 @@ with open('README.md') as f:
 
 setuptools.setup(
     name='pukpuk',
-    version='1.0',
+    version='1.1',
     author='tasooshi',
     author_email='tasooshi@pm.me',
     description='HTTP services discovery toolkit',
@@ -38,6 +38,7 @@ setuptools.setup(
         'dnspython==2.0.0',
         'requests==2.25.0',
         'Pillow==8.0.1',
+        'PySocks==1.6.8',
     ),
     entry_points={
         'console_scripts': (

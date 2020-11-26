@@ -41,7 +41,17 @@ Pukpuk ("pook-pook") is a tool for discovering and monitoring HTTP services. It 
 
     $ pip3 install pukpuk
 
+## Troubleshooting
+
+### libgcc_s.so.1 must be installed for pthread_cancel to work
+
+    $ LD_PRELOAD=libgcc_s.so.1 pukpuk
+
 ## Changelog
+
+### 1.1
+
+* Added support for SOCKS5 proxying
 
 ### 1.0
 

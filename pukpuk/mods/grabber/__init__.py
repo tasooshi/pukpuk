@@ -12,6 +12,10 @@ class Module(HttpModule):
 
     name = 'Grabber'
 
+    def before(self):
+        if self.main.proxy:
+            self.cache['proxy_server'] = 'socks5://{}:{}'.format(*self.main.proxy)
+
     def execute(self, url):
         user_agent = self.args['user_agent']
         executable = self.args['executable']
@@ -19,9 +23,22 @@ class Module(HttpModule):
         mod_dir.mkdir(parents=True, exist_ok=True)
         base_filename = pathlib.Path(mod_dir, self.get_base_filename(url))
         image_filename = str(base_filename) + '.png'
+        exec_args = [
+            executable,
+            '--headless',
+            '--disable-gpu',
+            '--window-size=1280,1696',
+            '--v0',
+            f'--screenshot={image_filename}',
+            f'--user-agent="{user_agent}"',
+            url,
+        ]
+        if self.main.proxy:
+            exec_args.insert(len(exec_args) - 1, '--proxy-server="{}"'.format(self.cache['proxy_server']))
+            exec_args.insert(len(exec_args) - 1, '--host-resolver-rules="MAP * ~NOTFOUND , EXCLUDE {}"'.format(self.main.proxy[0]))
         try:
             subprocess.check_output(
-                [executable, '--headless', '--disable-gpu', '--window-size=1280,1696', '--v0', f'--screenshot={image_filename}', f'--user-agent={user_agent}', url],
+                exec_args,
                 stderr=subprocess.STDOUT,
                 timeout=self.args['process_timeout']
             )
