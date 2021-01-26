@@ -17,18 +17,19 @@ class Module(HttpModule):
             self.cache['proxy_server'] = 'socks5://{}:{}'.format(*self.main.proxy)
 
     def execute(self, url):
-        user_agent = self.args['user_agent']
-        executable = self.args['executable']
-        mod_dir = pathlib.Path(self.args['output_directory'], self.name.lower())
+        user_agent = self.main.args.user_agent
+        browser = self.main.args.browser
+        mod_dir = pathlib.Path(self.main.args.output_directory, self.name.lower())
         mod_dir.mkdir(parents=True, exist_ok=True)
         base_filename = pathlib.Path(mod_dir, self.get_base_filename(url))
         image_filename = str(base_filename) + '.png'
         exec_args = [
-            executable,
+            browser,
             '--headless',
             '--disable-gpu',
             '--window-size=1280,1696',
             '--v0',
+            '--ignore-certificate-errors',
             f'--screenshot={image_filename}',
             f'--user-agent="{user_agent}"',
             url,
@@ -40,10 +41,10 @@ class Module(HttpModule):
             subprocess.check_output(
                 exec_args,
                 stderr=subprocess.STDOUT,
-                timeout=self.args['process_timeout']
+                timeout=self.main.args.process_timeout
             )
         except FileNotFoundError:
-            logging.logger.error(f'Error occured when grabbing the screen. Is `{executable}` installed?')
+            logging.logger.error(f'Error occured when grabbing the screen. Is `{browser}` installed?')
             exit(1)
         except subprocess.TimeoutExpired:
             logging.logger.debug(f'Screen grabbing timed out for {url} (try adjusting --process-timeout)')
@@ -54,6 +55,3 @@ class Module(HttpModule):
                 os.remove(image_filename)
                 logging.logger.debug(f'Blank screen for {url} returned, deleting image')
             logging.logger.info(f'{self.name} finished {url}')
-
-    def extra_args(self, parser):
-        super().extra_args(parser)

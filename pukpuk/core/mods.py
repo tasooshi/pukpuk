@@ -4,13 +4,11 @@ from pukpuk.core.logging import logger
 class BaseModule:
 
     def __init__(self, *args, **kwargs):
-        self.args = None
         self.main = None
         self.cache = dict()
 
-    def init(self, args, main):
+    def init(self, main):
         logger.debug(f'Initializing {self.__module__}')
-        self.args = args
         self.main = main
         self.before()
 
@@ -19,9 +17,6 @@ class BaseModule:
 
     def execute(self):
         raise NotImplementedError
-
-    def extra_args(self, parser):
-        pass
 
 
 class HttpModule(BaseModule):

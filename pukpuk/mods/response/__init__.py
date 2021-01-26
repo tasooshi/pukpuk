@@ -19,12 +19,12 @@ class Module(HttpModule):
             }
 
     def execute(self, url):
-        mod_dir = pathlib.Path(self.args['output_directory'], self.name.lower())
+        mod_dir = pathlib.Path(self.main.args.output_directory, self.name.lower())
         mod_dir.mkdir(parents=True, exist_ok=True)
         base_filename = pathlib.Path(mod_dir, self.get_base_filename(url))
         get_args = {
             'verify': False,
-            'timeout': self.args['socket_timeout'],
+            'timeout': self.main.args.socket_timeout,
             'headers': self.main.headers,
         }
         if self.main.proxy:
@@ -41,6 +41,3 @@ class Module(HttpModule):
                 fil.write('\n\n'.encode('utf8'))
                 fil.write(response.content)
             logging.logger.info(f'{self.name} finished {url}')
-
-    def extra_args(self, parser):
-        super().extra_args(parser)
