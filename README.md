@@ -1,6 +1,6 @@
 # pukpuk
 
-    ░▒▓ pukpuk ▓▒░ HTTP discovery and change monitoring tool
+> HTTP discovery and change monitoring tool
 
 ## About
 
@@ -130,6 +130,10 @@ optional arguments:
 ```
 
 ## Changelog
+
+### 2.0.2 (2021-07-30)
+
+* Updated dependency (Pillow)
 
 ### 2.0.1 (2021-03-31)
 
