@@ -37,7 +37,7 @@ setuptools.setup(
         'pyOpenSSL==20.0.1',
         'dnspython==2.1.0',
         'requests==2.25.1',
-        'Pillow==8.3.1',
+        'Pillow==8.3.2',
         'PySocks==1.7.1',
     ),
     entry_points={
