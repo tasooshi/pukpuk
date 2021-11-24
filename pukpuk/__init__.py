@@ -32,7 +32,7 @@ from pukpuk.core import (
 )
 
 
-__version__ = '2.0.2'
+__version__ = '2.0.3'
 
 
 urllib3.disable_warnings()
@@ -74,7 +74,6 @@ class Main:
         self.targets = list()
         self.urls = list()
         self.modules = list()
-        self.loop = asyncio.get_event_loop()
         self.headers = requests.utils.default_headers()
         self.defaults = {
             'modules': [
@@ -321,10 +320,9 @@ class Main:
         """Asynchronous execution method"""
 
         try:
-            self.loop = asyncio.get_event_loop()
-            self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.args.workers)
+            loop = asyncio.get_event_loop()
             future = asyncio.gather(*tasks, return_exceptions=True)
-            self.loop.run_until_complete(future)
+            loop.run_until_complete(future)
         except KeyboardInterrupt:
             logging.logger.info('Step canceled!')
             [fut.cancel() for fut in tasks]
@@ -335,6 +333,7 @@ class Main:
     def prepare(self):
         """Main execution method"""
 
+        loop = asyncio.get_event_loop()
         logging.logger.info('Using the following settings:')
         for key, value in self.args.__dict__.items():
             value = ', '.join(value) if isinstance(value, list) else value
@@ -382,7 +381,7 @@ class Main:
 
             logging.logger.info('Discovering...')
             futures = [
-                self.loop.run_in_executor(self.executor, self.discover, host, int(port), proto) for host in hosts for port, proto in services
+                loop.run_in_executor(self.executor, self.discover, host, int(port), proto) for host in hosts for port, proto in services
             ]
             self.run_tasks(futures)
 
@@ -394,7 +393,7 @@ class Main:
         # Generate list of URLs to be used with modules
         logging.logger.info('Generating URLs...')
         futures = [
-            self.loop.run_in_executor(self.executor, self.generate, host, port, proto) for host, port, proto in self.targets
+            loop.run_in_executor(self.executor, self.generate, host, port, proto) for host, port, proto in self.targets
         ]
         self.run_tasks(futures)
 
@@ -404,10 +403,11 @@ class Main:
 
     def run_modules(self):
         """Runs all registered modules"""
-
+        
+        loop = asyncio.get_event_loop()
         for module in self.modules:
             self.run_tasks(
-                [self.loop.run_in_executor(self.executor, module.execute, url) for url in self.urls]
+                [loop.run_in_executor(self.executor, module.execute, url) for url in self.urls]
             )
         logging.logger.info(f'Results saved in: {self.args.output_directory}')
 

@@ -131,6 +131,11 @@ optional arguments:
 
 ## Changelog
 
+### 2.0.3 (2021-11-24)
+
+* Updated dependency (Pillow)
+* Minor refactoring
+
 ### 2.0.2 (2021-07-30)
 
 * Updated dependency (Pillow)
