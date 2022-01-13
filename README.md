@@ -134,6 +134,7 @@ optional arguments:
 ### 2.0.4 (2022-01-13)
 
 * Updated dependency (Pillow)
+* Changed licensing
 
 ### 2.0.3 (2021-11-24)
 
