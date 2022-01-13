@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #######################################################################
-# License: GNU General Public License v3.0                            #
+# License: MIT License                                                #
 # Homepage: https://github.com/tasooshi/pukpuk/                       #
 # Version: 2.0.4                                                      #
 #######################################################################
@@ -23,7 +23,7 @@ setuptools.setup(
     author='tasooshi',
     author_email='tasooshi@pm.me',
     description='HTTP services discovery toolkit',
-    license='GNU General Public License v3.0',
+    license='MIT License',
     keywords=[
         'HTTP',
         'scanner',
