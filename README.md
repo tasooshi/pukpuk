@@ -131,6 +131,10 @@ optional arguments:
 
 ## Changelog
 
+### 2.0.5 (2022-03-23)
+
+* Updated requirements
+
 ### 2.0.4 (2022-01-13)
 
 * Updated dependency (Pillow)

@@ -2,7 +2,7 @@
 #######################################################################
 # License: MIT License                                                #
 # Homepage: https://github.com/tasooshi/pukpuk/                       #
-# Version: 2.0.4                                                      #
+# Version: 2.0.5                                                      #
 #######################################################################
 
 from __future__ import (
@@ -19,7 +19,7 @@ with open('README.md') as f:
 
 setuptools.setup(
     name='pukpuk',
-    version='2.0.4',
+    version='2.0.5',
     author='tasooshi',
     author_email='tasooshi@pm.me',
     description='HTTP services discovery toolkit',
@@ -34,10 +34,10 @@ setuptools.setup(
     url='https://github.com/tasooshi/pukpuk/',
     packages=setuptools.find_packages(),
     install_requires=(
-        'pyOpenSSL==21.0.0',
-        'dnspython==2.1.0',
-        'requests==2.26.0',
-        'Pillow==9.0.0',
+        'pyOpenSSL==22.0.0',
+        'dnspython==2.2.1',
+        'requests==2.27.1',
+        'Pillow==9.0.1',
         'PySocks==1.7.1',
     ),
     entry_points={
