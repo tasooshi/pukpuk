@@ -32,7 +32,7 @@ from pukpuk.core import (
 )
 
 
-__version__ = '2.0.5'
+__version__ = '2.0.6'
 
 
 urllib3.disable_warnings()
