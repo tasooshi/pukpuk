@@ -1,0 +1,37 @@
+version: '3.8'
+services:
+  socks:
+    build:
+      context: .
+      dockerfile: ./dockers/socks.docker
+    ports:
+      - "22:22"
+    volumes:
+      - ./dockers/socks/test_id_rsa.pub:/home/user/.ssh/authorized_keys
+    networks:
+      test:
+        ipv4_address: 192.168.2.3
+  http:
+    build:
+      context: .
+      dockerfile: ./dockers/http.docker
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8000:8000"
+      - "8080:8080"
+      - "8443:8443"
+      - "9443:9443"
+    volumes:
+      - ./dockers/http/server.py:/opt/server.py
+      - ./dockers/http/server.pem:/opt/server.pem
+    networks:
+      test:
+        ipv4_address: 192.168.2.2
+networks:
+  test:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.2.0/24

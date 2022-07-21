@@ -1,0 +1,17 @@
+[paths]
+source =
+   src
+   */site-packages
+
+[run]
+branch = true
+parallel = true
+source =
+   pukpuk
+   tests
+omit =
+   tests/conftest.py
+
+[report]
+show_missing = true
+precision = 2

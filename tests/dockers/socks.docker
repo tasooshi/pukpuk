@@ -1,0 +1,9 @@
+FROM debian:11-slim
+ENV DEBIAN_FRONTEND noninteractive
+RUN useradd -m -d /home/user user -s /bin/bash
+RUN mkdir /var/run/sshd
+RUN apt-get -qq update \
+    && apt-get -qq --no-install-recommends install openssh-server \
+    && apt-get -qq clean \
+    && rm -rf /var/lib/apt/lists/*
+CMD ["/usr/sbin/sshd", "-D"]

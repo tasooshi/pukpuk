@@ -1,80 +1,37 @@
+![version](https://img.shields.io/pypi/v/pukpuk) ![pyversions](https://img.shields.io/pypi/pyversions/pukpuk) ![license](https://img.shields.io/pypi/l/pukpuk) ![status](https://img.shields.io/pypi/status/pukpuk)
+
 # pukpuk
 
 > HTTP discovery and change monitoring tool
 
 ## About
 
-Pukpuk ("pook-pook") is a tool for discovering and monitoring HTTP services. It simply grabs screens and responses, and stores them in a directory (new features may be added in the future). It is especially useful in the initial phase of any assignment to find vulnerable Web applications, forgotten devices, directories listing source code or backups. Results are easily greppable. When monitoring, a good practice is to store the results in a repository so it is easier to track changes. Apart from port scanning `pukpuk` also does reverse DNS lookup and certificate parsing. Quite often certificates reveal extra virtual hosts or domain names.
+Pukpuk ("pook-pook") is a simple utility that stores screenshots and HTTP responses for a given network range or URLs. It does so by looking for open ports, parsing certificates and performing reverse DNS lookups.
 
 ## Requirements
 
-* Python 3.x
-* Chrome / Chromium for screen grabbing functionality
+* Python 3.9, 3.10
+* `chromium` (for screen grabbing functionality)
 
-## Usage
+## Basic Usage
 
-### Default OS nameserver, using `chromium` and default ports (80/http, 443/https)
+### Scan network 10.0.0.0/24 using default ports
 
-    $ pukpuk -n 10.0.0.0/24
+    $ pukpuk -N 10.0.0.0/24
 
-### Custom nameserver and ports, using `chrome.exe`
+### Scan network 10.0.0.0/24 and examine ports 80/http, 443/https and 8443/?
 
-    $ pukpuk -n 10.0.0.0/24 -d 84.200.69.80 -b chrome.exe -p 80/http 443/https 8000 8443
+    $ pukpuk -N 10.0.0.0/24 -p 80/http 443/https 8443
 
-### Use IP list instead of CIDR notation
+### Skip discovery and load URLs from a file
 
-    $ pukpuk -l hosts.txt
-
-### Or skip the discovery phase and provide a CSV file (format: 192.168.1.1,443,https)
-
-    $ pukpuk -t targets.csv
-
-### Combined with nmap ping sweep to speed up host discovery
-
-    $ nmap -n -sn 10.0.1.0/24 -oG hosts.gnmap
-
-    $ cat hosts.gnmap | grep Status | cut -d" " -f2 > hosts.txt
-
-    $ pukpuk -c pukpuk.conf -l hosts.txt
+    $ pukpuk -T hosts.txt
 
 ## Installation
 
 ### Using PyPI
 
     $ pip3 install pukpuk
-
-### From sources
-
-    $ git clone https://github.com/tasooshi/pukpuk.git
-    $ cd pukpuk
-    $ pip3 install .
-
-## Configuration file example
-
-`pukpuk.conf`
-
-```
-[DEFAULT]
-browser = chrome
-modules = pukpuk.mods.response,pukpuk.mods.grabber
-output_directory = pukpuk-tmp
-ports = 8000,8080,8443/https,9443/https
-process_timeout = 15
-nameserver = 192.168.100.1
-socket_timeout = 2
-user_agent = Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36
-workers = 8
-```
-
-`pukpuk-fast.conf`
-
-```
-[DEFAULT]
-workers = 8
-socket_timeout = 0.8
-process_timeout = 10
-ports = 80,81,82,443,4443,8000,8001,8002,8008,8080,8088,8888,8443,9443
-```
 
 ## Troubleshooting
 
@@ -84,52 +41,51 @@ ports = 80,81,82,443,4443,8000,8001,8002,8008,8080,8088,8888,8443,9443
 
 ### Doesn't discover ports that exist for sure
 
-In case of larger scans and possibility of dealing with a firewall experiment with increasing `socket_timeout`, using less `workers`, splitting the scan into smaller parts using text file input or give randomization a chance.
+In case of larger scans and possibility of dealing with a firewall experiment with increasing `--socket-timeout`, using less `--workers`, splitting the scan into smaller parts using text file input or give randomization a chance.
 
 ## CLI
 
 ```
-usage: pukpuk [-h] (-n NETWORK | -l HOSTS | -t TARGETS) [-c CONFIG] [-o OUTPUT_DIRECTORY] [-b BROWSER] [-p PORTS [PORTS ...]] [-m MODULES [MODULES ...]] [-d NAMESERVER] [-x SOCKS5_PROXY] [-u USER_AGENT] [-v] [-w WORKERS]
-              [--process-timeout PROCESS_TIMEOUT] [--socket-timeout SOCKET_TIMEOUT] [-d]
+usage: pukpuk [-h] (-N NETWORK | -T TARGETS) [-p PORTS] [-b BROWSER] [-n NAMESERVER] [-r] [-o OUTPUT_DIR] [-x SOCKS_PROXY] [-u USER_AGENT] [-w WORKERS] [--process-timeout PROCESS_TIMEOUT] [--socket-timeout SOCKET_TIMEOUT] [-v] [-d | -q]
 
 HTTP discovery and change monitoring tool
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
-  -n NETWORK, --network NETWORK
+  -N NETWORK, --network NETWORK
                         Discovery mode, accepts network in CIDR notation, e.g. "10.0.0.0/24"
-  -l HOSTS, --hosts HOSTS
-                        Discovery mode, accepts hosts list as a file, one IP address per line
-  -t TARGETS, --targets TARGETS
-                        Skips discovery, accepts targets as a file, CSV format: [address],[port],[?protocol], e.g. "192.168.1.1,443,https" or "192.168.1.1,443,"
-  -c CONFIG, --config CONFIG
-                        Configuration file path, overrides command line arguments and defaults (default: pukpuk.conf)
-  -o OUTPUT_DIRECTORY, --output-directory OUTPUT_DIRECTORY
-                        Path where results (text files, images) will be stored (default: 20200101_2000.pukpuk)
+  -T TARGETS, --targets TARGETS
+                        Skip discovery, load URLs from a file
+  -p PORTS, --ports PORTS
+                        Port list for HTTP service discovery [Default: 80/http, 443/https]
   -b BROWSER, --browser BROWSER
-                        Browser binary path for headless screen grabbing (default: chromium)
-  -p PORTS [PORTS ...], --ports PORTS [PORTS ...]
-                        Port list for HTTP service discovery (default: 80/http, 8000/http, 8080/http, 443/https, 8443/https)
-  -m MODULES [MODULES ...], --modules MODULES [MODULES ...]
-                        List of modules to be executed (default: pukpuk.mods.response, pukpuk.mods.grabber)
-  -d NAMESERVER, --nameserver NAMESERVER
-                        DNS server (default: 127.0.0.1)
-  -x SOCKS5_PROXY, --socks5-proxy SOCKS5_PROXY
-                        Socks5 proxy, e.g. "127.0.0.1:1080
-  -u USER_AGENT, --user-agent USER_AGENT
-                        Browser User-Agent header (default: python-requests/2.25.0)
-  -v, --version         show program's version number and exit
-  -w WORKERS, --workers WORKERS
-                        Number of concurrent workers (default: 6)
+                        Chromium browser path for headless screen grabbing [Default: chromium]
+  -n NAMESERVER, --nameserver NAMESERVER
+                        DNS server [Default: system defaults]
   -r, --randomize       Randomize scanning order
+  -o OUTPUT_DIR, --output-dir OUTPUT_DIR
+                        Path where results (text files, images) will be stored [Default: YYYYMMDD_HHMM.pukpuk]
+  -x SOCKS_PROXY, --socks-proxy SOCKS_PROXY
+                        Socks5 proxy, e.g. "127.0.0.1:1080"
+  -u USER_AGENT, --user-agent USER_AGENT
+                        Browser User-Agent header [Default: python-requests/2.28.1]
+  -w WORKERS, --workers WORKERS
+                        Number of concurrent workers [Default: 25]
   --process-timeout PROCESS_TIMEOUT
-                        Process timeout in seconds (default: 12.5)
+                        Process timeout in seconds [Default: 12]
   --socket-timeout SOCKET_TIMEOUT
-                        Socket timeout in seconds (default: 2.5)
+                        Socket timeout in seconds [Default: 3]
+  -v, --version         Print version
   -d, --debug
+  -q, --quiet
 ```
 
 ## Changelog
+
+### 3.0.0 (2022-07-22)
+
+* Major refactoring and backward incompatible changes
+* Improved test suite
 
 ### 2.0.6 (2022-06-22)
 
