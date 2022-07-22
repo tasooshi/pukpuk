@@ -1,4 +1,5 @@
 import logging
+import pathlib
 
 
 logger = logging.getLogger('pukpuk')
@@ -10,8 +11,9 @@ handler = logging.StreamHandler()
 logger.addHandler(handler)
 
 
-def init(loglevel):
+def init(loglevel, directory):
     logger.setLevel(loglevel)
+    logger.addHandler(logging.FileHandler(filename=pathlib.Path(directory, 'pukpuk.log')))
     try:
         handler.setFormatter(formatter[loglevel])
     except KeyError:

@@ -2,11 +2,13 @@ import argparse
 import atexit
 import concurrent.futures
 import concurrent.futures.thread
-import ipaddress
+import errno
+import netaddr
 import pathlib
 import random
 import socket
 import ssl
+import sys
 import threading
 from datetime import datetime
 from urllib import parse
@@ -15,7 +17,6 @@ import dns.exception
 import dns.resolver
 import dns.reversename
 import requests
-import socks
 import urllib3
 from OpenSSL import crypto
 
@@ -24,6 +25,17 @@ from pukpuk import (
     mods,
     version,
 )
+
+
+class ParserError(Exception):
+
+    pass
+
+
+class CustomArgumentParser(argparse.ArgumentParser):
+
+    def error(self, message):
+        raise ParserError(message)
 
 
 class Results:
@@ -55,40 +67,34 @@ class Application:
         PROTO_HTTPS: 443,
     }
     OUTPUT_DIR_EXT = '.pukpuk'
+    OUTPUT_URLS_FILENAME = 'urls.txt'
     DEFAULT_BROWSER = 'chromium'
     DEFAULT_PORTS = ('80/http', '443/https')
-    DEFAULT_WORKERS = 25
+    DEFAULT_WORKERS = 15
     DEFAULT_PROCESS_TIMEOUT = 12
-    DEFAULT_SOCKET_TIMEOUT = 3
+    DEFAULT_SOCKET_TIMEOUT = 2
 
     def __init__(
         self,
         ports=None,
         browser=None,
-        nameserver=None,
         randomize=False,
-        socks_proxy=None,
         user_agent=None,
         workers=None,
         output_dir=None,
         process_timeout=None,
-        socket_timeout=None
+        socket_timeout=None,
+        skip_screens=False
     ):
         self.patch()
-        if nameserver is None:
-            default_resolver = dns.resolver.Resolver(configure=True)
-            self.nameserver = default_resolver
-            self.nameserver.nameservers = default_resolver.nameservers
-        else:
-            self.nameserver = dns.resolver.Resolver()
-            self.nameserver.nameservers = [self.nameserver]
         self.browser = self.DEFAULT_BROWSER if browser is None else browser
         self.randomize = randomize
+        self.skip_screens = skip_screens
         self.ports = list(self.DEFAULT_PORTS) if ports is None else ports
         self.process_timeout = self.DEFAULT_PROCESS_TIMEOUT if process_timeout is None else process_timeout
         self.socket_timeout = self.DEFAULT_SOCKET_TIMEOUT if socket_timeout is None else socket_timeout
+        self.nameserver = dns.resolver.Resolver(configure=True)
         self.nameserver.timeout = self.socket_timeout
-        self.socks_proxy = socks_proxy
         self.workers = self.DEFAULT_WORKERS if workers is None else workers
         self.headers = requests.utils.default_headers()
         self.user_agent = self.headers['User-Agent'] if user_agent is None else user_agent
@@ -98,9 +104,10 @@ class Application:
         self.ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
         self.ssl_ctx.check_hostname = False
         self.ssl_ctx.verify_mode = ssl.CERT_NONE
+        self.modules = None
 
     def get_parser(self):
-        parser = argparse.ArgumentParser(
+        parser = CustomArgumentParser(
             prog='pukpuk',
             description='HTTP discovery and change monitoring tool',
             epilog=(
@@ -114,18 +121,17 @@ class Application:
         )
         parser.print_usage = parser.print_help
         group = parser.add_mutually_exclusive_group(required=True)
-        group.add_argument('-N', '--network', help='Discovery mode, accepts network in CIDR notation, e.g. "10.0.0.0/24"')
+        group.add_argument('-N', '--network', help='Discovery mode, accepts network in CIDR notation or an IP range, e.g. "10.0.0.0/24", "10.0.1.1-10.2.1.1"')
         group.add_argument('-T', '--targets', help='Skip discovery, load URLs from a file')
-        parser.add_argument('-p', '--ports', default=','.join(self.ports), help='Port list for HTTP service discovery [Default: ' + ', '.join(self.ports) + ']')
+        parser.add_argument('-p', '--ports', default=','.join(self.ports), help='Comma separated port list for HTTP service discovery [Default: ' + ', '.join(self.ports) + ']')
         parser.add_argument('-b', '--browser', default=self.browser, help='Chromium browser path for headless screen grabbing [Default: ' + self.browser + ']')
-        parser.add_argument('-n', '--nameserver', default=self.nameserver.nameservers[0], help='DNS server [Default: ' + self.nameserver.nameservers[0] + ']')
         parser.add_argument('-r', '--randomize', action='store_true', default=self.randomize, help='Randomize scanning order')
         parser.add_argument('-o', '--output-dir', default=self.output_dir, help='Path where results (text files, images) will be stored [Default: ' + self.output_dir + ']')
-        parser.add_argument('-x', '--socks-proxy', help='Socks5 proxy, e.g. "127.0.0.1:1080"')
         parser.add_argument('-u', '--user-agent', default=self.user_agent, help='Browser User-Agent header [Default: ' + self.user_agent + ']')
         parser.add_argument('-w', '--workers', default=self.workers, type=int, help='Number of concurrent workers [Default: ' + str(self.workers) + ']')
         parser.add_argument('--process-timeout', type=float, default=self.process_timeout, help='Process timeout in seconds [Default: ' + str(self.process_timeout) + ']')
         parser.add_argument('--socket-timeout', type=float, default=self.socket_timeout, help='Socket timeout in seconds [Default: ' + str(self.socket_timeout) + ']')
+        parser.add_argument('--skip-screens', action='store_true', default=self.skip_screens, help='Skip screen grabbing')
         parser.add_argument('-v', '--version', action='version', version=version.__version__, help='Print version')
         verbosity = parser.add_mutually_exclusive_group()
         verbosity.add_argument('-d', '--debug', action='store_const', dest='loglevel', const=logs.logging.DEBUG, default=logs.logging.INFO)
@@ -137,20 +143,37 @@ class Application:
         urllib3.disable_warnings()
         atexit.unregister(concurrent.futures.thread._python_exit)
 
-    def targets_from_cidr(self, cidr):
-        """Converts CIDR string to list of IP addresses
+    def targets_from_network(self, network):
+        """Converts network string to list of IP addresses
 
         """
-        logs.logger.debug(f'From CIDR {cidr}')
-        return [(str(ip), None, None) for ip in ipaddress.ip_network(cidr).hosts()]
+        logs.logger.debug(f'Targets from `network` argument: {network}')
+        ips = None
+        try:
+            ips = netaddr.IPNetwork(network)
+        except (netaddr.core.AddrFormatError, ValueError):
+            pass
+        try:
+            ips = netaddr.iter_iprange(*network.split('-'))
+        except TypeError:
+            pass
+        if ips:
+            return [(str(ip), None, None) for ip in ips]
+        else:
+            logs.logger.error(f'Invalid `network` argument: {network}')
+            sys.exit(errno.EINVAL)
 
     def targets_from_file(self, path):
         """Loads list of IP addresses, host names and URLs from a text file
 
         """
-        logs.logger.debug(f'From file {path}')
+        logs.logger.debug(f'Targets from file `{path}`')
         with open(path) as fil:
-            return [(parsed.hostname, parsed.port, parsed.scheme) for line in fil if (parsed := parse.urlsplit(line))]
+            contents = [(parsed.hostname, parsed.port, parsed.scheme) for line in fil if (parsed := parse.urlsplit(line))]
+            if any([not any(row) for row in contents]):
+                logs.logger.error(f'Error: invalid file `{path}`')
+                sys.exit(errno.EINVAL)
+            return contents
 
     def get_url(self, host, port, proto):
         """Converts (host, port, protocol) tuple to URL
@@ -165,22 +188,18 @@ class Application:
         while pathlib.Path(name).exists():
             suffix += 1
             name = name_date + '-' + str(suffix) + self.OUTPUT_DIR_EXT
-        logs.logger.debug(f'Output directory {name}')
+        logs.logger.debug(f'Output directory `{name}`')
         return name
 
     def sock_connect(self, host, port):
-        logs.logger.debug(f'Connecting to {host}:{port}')
-        sock = socks.socksocket(socket.AF_INET, socket.SOCK_STREAM)
+        logs.logger.debug(f'Connecting to `{host}:{port}`')
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(self.socket_timeout)
-        if self.socks_proxy:
-            sock.set_proxy(socks.SOCKS5, self.socks_proxy[0], self.socks_proxy[1])
         try:
             sock.connect((host, port))
-        except socks.ProxyConnectionError:
-            logs.logger.debug(f'Error when connecting to {host}:{port} through SOCKS proxy: {self.socks_proxy}')
         except Exception as exc:
-            logs.logger.debug(f'Error when connecting to {host}:{port}: {exc}')
-        if self.socks_proxy or sock:
+            logs.logger.debug(f'Error when connecting to `{host}:{port}`: {exc}')
+        else:
             return sock
 
     def port_test(self, host, port):
@@ -190,7 +209,6 @@ class Application:
         sock = self.sock_connect(host, port)
         request = 'HEAD / HTTP/1.0\r\nHost: {}\r\nAccept: text/html\r\n\r\n'.format(host)
         sock.sendall(request.encode('ascii'))
-
         check_https = False
         try:
             response = sock.recv(4096)
@@ -206,13 +224,13 @@ class Application:
         sock.close()
 
         if check_https:
-            logs.logger.debug(f'Checking if {host}:{port} is encrypted')
+            logs.logger.debug(f'Checking if `{host}:{port}` is encrypted')
             sock = self.sock_connect(host, port)
             try:
                 ssock = self.ssl_ctx.wrap_socket(sock, server_hostname=host)
                 ssock.getpeercert(True)
             except (ConnectionResetError, socket.timeout, ssl.SSLError):
-                logs.logger.debug(f'Probably not encrypted {host}:{port}')
+                logs.logger.debug(f'Probably not encrypted `{host}:{port}`')
             else:
                 return self.PROTO_HTTPS
             sock.close()
@@ -225,7 +243,7 @@ class Application:
         """Adds successfully connected ports to targets, parse HTTPS certificate if applicable
 
         """
-        logs.logger.debug(f'Discovering {target}')
+        logs.logger.debug(f'Discovering `{target}`')
         host, port, proto = target
         if not proto:
             proto = self.port_test(host, port)
@@ -236,16 +254,16 @@ class Application:
         sock = self.sock_connect(host, port)
         if sock:
             self.discovered.add((host, port, proto))
-            logs.logger.info(f'Added {proto}://{host}:{port} to discoveries')
+            logs.logger.info(f'Added `{proto}://{host}:{port}` to discoveries')
             # NOTE: If HTTPS extract certificate details and add all extra host names to the list
             if proto == self.PROTO_HTTPS:
                 try:
                     ssock = self.ssl_ctx.wrap_socket(sock, server_hostname=host)
                     cert = ssock.getpeercert(True)
                 except (OSError, ConnectionResetError, socket.timeout, ssl.SSLError):
-                    logs.logger.debug(f'Probably not encrypted {host}:{port}')
+                    logs.logger.debug(f'Probably not encrypted `{host}:{port}`')
                 else:
-                    logs.logger.debug(f'Parsing certificate for {host}:{port}')
+                    logs.logger.debug(f'Parsing certificate for `{host}:{port}`')
                     x509 = crypto.load_certificate(crypto.FILETYPE_ASN1, cert)
                     for i in range(0, x509.get_extension_count()):
                         ext = x509.get_extension(i)
@@ -257,28 +275,27 @@ class Application:
                                     except ValueError:
                                         cert_host = alt.lower()
                                         self.discovered.add((cert_host, port, proto))
-                                        logs.logger.info(f'Added {proto}://{cert_host}:{port} to discoveries (from certificate)')
-            sock.close()
-
-        # NOTE: Add target based on resolved name for an IP address (even if not reachable, could change location)
-        try:
-            ipaddress.ip_address(host)
-        except ValueError:
-            pass
-        else:
+                                        logs.logger.info(f'Added `{proto}://{cert_host}:{port}` to discoveries (from certificate)')
             try:
-                response = self.nameserver.resolve_address(host)
-            except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout):
-                logs.logger.debug(f'Could not resolve {host}')
+                netaddr.IPAddress(host)
+            except netaddr.core.AddrFormatError:
+                logs.logger.debug(f'`{host}` is not IP address')
             else:
                 try:
-                    fqdn = list(response.rrset.items.keys())[0].to_text().rstrip('.')
-                except KeyError:
-                    pass
+                    response = self.nameserver.resolve_address(host)
+                except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout):
+                    logs.logger.debug(f'Could not resolve `{host}`')
                 else:
-                    fqdn_host = fqdn.lower()
-                    logs.logger.debug(f'Added {proto}://{fqdn_host}:{port} to discoveries (from resolver)')
-                    self.discovered.add((fqdn_host, port, proto))
+                    try:
+                        fqdn = list(response.rrset.items.keys())[0].to_text().rstrip('.')
+                    except KeyError:
+                        pass
+                    else:
+                        fqdn_host = fqdn.lower()
+                        logs.logger.info(f'Added `{proto}://{fqdn_host}:{port}` to discoveries (from resolver)')
+                        self.discovered.add((fqdn_host, port, proto))
+            sock.close()
+
 
     def get_discovery_targets(self, targets, services):
         result = list()
@@ -312,12 +329,30 @@ class Application:
             random.shuffle(result)
         return result
 
+    def execute(self, url):
+        for module in self.modules:
+            module.execute(url)
+
     def run(self, targets, services):
+        self.modules = [
+            mods.Responses(self),
+        ]
+        if not self.skip_screens:
+            self.modules.append(mods.Screens(self))
+        if self.randomize:
+            random.shuffle(targets)
+            random.shuffle(services)
         final_targets = self.get_final_targets(targets, services)
-        modules = [mods.Screens(self), mods.Response(self)]
+        if final_targets:
+            logs.logger.info(f'Discovery finished, running modules')
+        else:
+            logs.logger.info(f'Nothing to do!')
+            sys.exit()
+        final_urls = [self.get_url(*target) for target in final_targets]
+        pathlib.Path(self.output_dir, self.OUTPUT_URLS_FILENAME).write_text('\n'.join(final_urls))
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.workers) as executor:
             futures = [
-                executor.submit(module.execute, self.get_url(*target)) for module in modules for target in final_targets
+                executor.submit(self.execute, url) for url in final_urls
             ]
             for future in concurrent.futures.as_completed(futures):
                 try:
@@ -326,28 +361,35 @@ class Application:
                     executor.shutdown(wait=False, cancel_futures=True)
                 except Exception as exc:
                     logs.logger.debug(f'Exception: {exc}')
-        logs.logger.info(f'Finished, results in: {self.output_dir}')
+        logs.logger.info(f'Finished, results in `{self.output_dir}`')
 
     def parse(self, args):
         parser = self.get_parser()
-        parsed = parser.parse_args(args)
-        logs.init(parsed.loglevel)
+        try:
+            parsed = parser.parse_args(args)
+        except ParserError as exc:
+            logs.logger.error(f'Error: {exc}')
+            sys.exit(errno.EINVAL)
+        pathlib.Path(parsed.output_dir).mkdir(parents=True, exist_ok=True)
+        logs.init(parsed.loglevel, parsed.output_dir)
         self.browser = parsed.browser
-        self.nameserver.nameservers = [parsed.nameserver]
         self.randomize = parsed.randomize
+        self.skip_screens = parsed.skip_screens
         self.output_dir = parsed.output_dir
-        if parsed.socks_proxy:
-            socks_split = parsed.socks_proxy.split(':')
-            self.socks_proxy = (socks_split[0], int(socks_split[1]))
         self.user_agent = parsed.user_agent
         self.headers['User-Agent'] = self.user_agent
         self.workers = parsed.workers
         self.process_timeout = parsed.process_timeout
         self.socket_timeout = parsed.socket_timeout
         if parsed.network:
-            targets = self.targets_from_cidr(parsed.network)
+            targets = self.targets_from_network(parsed.network)
         else:
             targets = self.targets_from_file(parsed.targets)
         ports = parsed.ports.split(',')
         services = [(int(service[0]), service[2]) for port in ports if (service := port.partition('/'))]
+        for service in services:
+            proto = service[1]
+            if proto not in (self.PROTO_HTTP, self.PROTO_HTTPS):
+                logs.logger.error(f'Error: invalid service `{proto}`')
+                sys.exit(errno.EINVAL)
         self.run(targets, services)

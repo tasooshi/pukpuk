@@ -15,17 +15,17 @@ Pukpuk ("pook-pook") is a simple utility that stores screenshots and HTTP respon
 
 ## Basic Usage
 
-### Scan network 10.0.0.0/24 using default ports
+### Scan CIDR network using default ports
 
     $ pukpuk -N 10.0.0.0/24
 
-### Scan network 10.0.0.0/24 and examine ports 80/http, 443/https and 8443/?
+### Scan IP range and examine ports 80/http, 443/https and 8443 (auto-detect)
 
-    $ pukpuk -N 10.0.0.0/24 -p 80/http 443/https 8443
+    $ pukpuk -N 10.0.1.1-10.0.2.15 -p 80/http,443/https,8443
 
 ### Skip discovery and load URLs from a file
 
-    $ pukpuk -T hosts.txt
+    $ pukpuk -T urls.txt
 
 ## Installation
 
@@ -46,27 +46,23 @@ In case of larger scans and possibility of dealing with a firewall experiment wi
 ## CLI
 
 ```
-usage: pukpuk [-h] (-N NETWORK | -T TARGETS) [-p PORTS] [-b BROWSER] [-n NAMESERVER] [-r] [-o OUTPUT_DIR] [-x SOCKS_PROXY] [-u USER_AGENT] [-w WORKERS] [--process-timeout PROCESS_TIMEOUT] [--socket-timeout SOCKET_TIMEOUT] [-v] [-d | -q]
+usage: pukpuk [-h] (-N NETWORK | -T TARGETS) [-p PORTS] [-b BROWSER] [-r] [-o OUTPUT_DIR] [-x SOCKS_PROXY] [-u USER_AGENT] [-w WORKERS] [--process-timeout PROCESS_TIMEOUT] [--socket-timeout SOCKET_TIMEOUT] [--skip-screens] [-v] [-d | -q]
 
 HTTP discovery and change monitoring tool
 
 options:
   -h, --help            show this help message and exit
   -N NETWORK, --network NETWORK
-                        Discovery mode, accepts network in CIDR notation, e.g. "10.0.0.0/24"
+                        Discovery mode, accepts network in CIDR notation or an IP range, e.g. "10.0.0.0/24", "10.0.1.1-10.2.1.1"
   -T TARGETS, --targets TARGETS
                         Skip discovery, load URLs from a file
   -p PORTS, --ports PORTS
-                        Port list for HTTP service discovery [Default: 80/http, 443/https]
+                        Comma separated port list for HTTP service discovery [Default: 80/http, 443/https]
   -b BROWSER, --browser BROWSER
                         Chromium browser path for headless screen grabbing [Default: chromium]
-  -n NAMESERVER, --nameserver NAMESERVER
-                        DNS server [Default: system defaults]
   -r, --randomize       Randomize scanning order
   -o OUTPUT_DIR, --output-dir OUTPUT_DIR
                         Path where results (text files, images) will be stored [Default: YYYYMMDD_HHMM.pukpuk]
-  -x SOCKS_PROXY, --socks-proxy SOCKS_PROXY
-                        Socks5 proxy, e.g. "127.0.0.1:1080"
   -u USER_AGENT, --user-agent USER_AGENT
                         Browser User-Agent header [Default: python-requests/2.28.1]
   -w WORKERS, --workers WORKERS
@@ -75,12 +71,23 @@ options:
                         Process timeout in seconds [Default: 12]
   --socket-timeout SOCKET_TIMEOUT
                         Socket timeout in seconds [Default: 3]
+  --skip-screens        Skip screen grabbing
   -v, --version         Print version
   -d, --debug
   -q, --quiet
 ```
 
 ## Changelog
+
+### 3.1.0 (2022-07-23)
+
+* Removed unreliable proxy support
+* Removed misleading `nameserver` option
+* Better error handling
+* Logging to file
+* [NEW] Added option for skipping screenshots
+* [NEW] Saving targeted URLs
+* [NEW] Support for IP ranges
 
 ### 3.0.0 (2022-07-22)
 

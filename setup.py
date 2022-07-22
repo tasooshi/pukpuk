@@ -37,7 +37,7 @@ setuptools.setup(
         'dnspython==2.2.1',
         'requests==2.28.1',
         'Pillow==9.2.0',
-        'PySocks==1.7.1',
+        'netaddr==0.8.0',
     ),
     zip_safe=False,
     classifiers=[
