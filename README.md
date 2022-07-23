@@ -79,6 +79,11 @@ options:
 
 ## Changelog
 
+### 3.1.1 (2022-07-23)
+
+* Fixed regression
+* Tested with Python 3.8
+
 ### 3.1.0 (2022-07-23)
 
 * Removed unreliable proxy support
