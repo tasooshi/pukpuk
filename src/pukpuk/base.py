@@ -3,7 +3,6 @@ import atexit
 import concurrent.futures
 import concurrent.futures.thread
 import errno
-import netaddr
 import pathlib
 import random
 import socket
@@ -16,6 +15,7 @@ from urllib import parse
 import dns.exception
 import dns.resolver
 import dns.reversename
+import netaddr
 import requests
 import urllib3
 from OpenSSL import crypto
@@ -274,8 +274,9 @@ class Application:
                                         int(alt)
                                     except ValueError:
                                         cert_host = alt.lower()
-                                        self.discovered.add((cert_host, port, proto))
-                                        logs.logger.info(f'Added `{proto}://{cert_host}:{port}` to discoveries (from certificate)')
+                                        if cert_host != host:
+                                            self.discovered.add((cert_host, port, proto))
+                                            logs.logger.info(f'Added `{proto}://{cert_host}:{port}` to discoveries (from certificate)')
             try:
                 netaddr.IPAddress(host)
             except netaddr.core.AddrFormatError:
@@ -298,6 +299,7 @@ class Application:
 
 
     def get_discovery_targets(self, targets, services):
+        logs.logger.info(f'Discovery in progress')
         result = list()
         for target in targets:
             if all(target):
@@ -388,8 +390,8 @@ class Application:
         ports = parsed.ports.split(',')
         services = [(int(service[0]), service[2]) for port in ports if (service := port.partition('/'))]
         for service in services:
-            proto = service[1]
-            if proto not in (self.PROTO_HTTP, self.PROTO_HTTPS):
+            proto = service[1] if service[1] else self.PROTO_UNKNOWN
+            if proto and proto not in (self.PROTO_HTTP, self.PROTO_HTTPS):
                 logs.logger.error(f'Error: invalid service `{proto}`')
                 sys.exit(errno.EINVAL)
         self.run(targets, services)

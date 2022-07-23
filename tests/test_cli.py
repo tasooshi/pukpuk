@@ -81,6 +81,21 @@ def test_ports(http, tmp_dir):
     assert pathlib.Path(tmp_dir, 'screens', 'http-localhost-80.png').exists() is True
 
 
+def test_ports_no_proto(http, tmp_dir):
+    target_ip, _ = http
+    args = shlex.split(f'-N 127.0.0.1/32 -p 80/http,8000 -o {tmp_dir}')
+    app = base.Application()
+    app.parse(args)
+    assert pathlib.Path(tmp_dir, 'responses', 'http-127.0.0.1-8000.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'http-localhost-8000.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'http-127.0.0.1-8000.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'http-localhost-8000.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'http-127.0.0.1-80.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'http-localhost-80.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'http-127.0.0.1-80.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'http-localhost-80.png').exists() is True
+
+
 def test_skip_screens(http, tmp_dir):
     target_ip, _ = http
     args = shlex.split(f'-N 127.0.0.1/32 -p 8000/http -o {tmp_dir} --skip-screens')

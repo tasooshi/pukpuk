@@ -66,11 +66,11 @@ options:
   -u USER_AGENT, --user-agent USER_AGENT
                         Browser User-Agent header [Default: python-requests/2.28.1]
   -w WORKERS, --workers WORKERS
-                        Number of concurrent workers [Default: 25]
+                        Number of concurrent workers [Default: 15]
   --process-timeout PROCESS_TIMEOUT
                         Process timeout in seconds [Default: 12]
   --socket-timeout SOCKET_TIMEOUT
-                        Socket timeout in seconds [Default: 3]
+                        Socket timeout in seconds [Default: 2]
   --skip-screens        Skip screen grabbing
   -v, --version         Print version
   -d, --debug
