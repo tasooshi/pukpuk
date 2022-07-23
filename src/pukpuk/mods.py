@@ -1,6 +1,8 @@
+import hashlib
 import pathlib
 import subprocess
 import sys
+from urllib import parse
 
 import requests
 from PIL import Image
@@ -21,7 +23,13 @@ class BaseModule:
         return base_dir
 
     def get_base_filename(self, url):
-        return url.replace('://', '-').replace(':', '-')[:-1]
+        parsed = parse.urlparse(url)
+        result = f'{parsed.scheme}-{parsed.hostname}'
+        if parsed.port:
+            result += f'-{parsed.port}'
+        if parsed.path:
+            result += '-' + hashlib.md5(parsed.path.encode('ascii')).hexdigest()
+        return result
 
 
 class Screens(BaseModule):
@@ -33,33 +41,37 @@ class Screens(BaseModule):
             browser,
             '--headless',
             '--disable-gpu',
-            '--window-size=1280,1696',
+            '--window-size=1000,1000',
             '--v0',
             '--ignore-certificate-errors',
+            '--run-all-compositor-stages-before-draw',
+            f'--virtual-time-budget={self.app.time_budget}',
             f'--screenshot={image_filename}',
             f'--user-agent="{self.app.user_agent}"',
             url,
         ]
-        try:
-            output = subprocess.check_output(
-                exec_args,
-                stderr=subprocess.STDOUT,
-                timeout=self.app.process_timeout
-            )
-            logs.logger.debug(output)
-        except FileNotFoundError:
-            logs.logger.error(f'Error occured when grabbing the screen. Is `{browser}` installed?')
-            sys.exit(1)
-        except subprocess.TimeoutExpired:
-            logs.logger.debug(f'Screen grabbing timed out for {url} (try adjusting --process-timeout)')
-        else:
-            with Image.open(image_filename) as img:
-                extrema = img.convert('L').getextrema()
-            if extrema[0] == extrema[1]:
-                pathlib.Path(image_filename).unlink()
-                logs.logger.debug(f'Blank screen for {url} returned, deleting image')
+        for attempt in range(1, self.app.attempts + 1):
+            try:
+                output = subprocess.check_output(
+                    exec_args,
+                    stderr=subprocess.STDOUT,
+                    timeout=self.app.process_timeout
+                )
+                logs.logger.debug(output)
+            except FileNotFoundError:
+                logs.logger.error(f'Error occured when grabbing the screen. Is `{browser}` installed?')
+                sys.exit(1)
+            except subprocess.TimeoutExpired:
+                logs.logger.debug(f'Screen grabbing timed out for {url} (attempt {attempt}/{self.app.attempts}, try adjusting --process-timeout)')
             else:
-                logs.logger.info(f'Saved {image_filename}')
+                with Image.open(image_filename) as img:
+                    extrema = img.convert('L').getextrema()
+                if extrema[0] == extrema[1]:
+                    pathlib.Path(image_filename).unlink()
+                    logs.logger.debug(f'Blank screen for {url} returned, deleting image')
+                else:
+                    logs.logger.info(f'Saved {image_filename}')
+                break
 
 
 class Responses(BaseModule):
@@ -78,8 +90,14 @@ class Responses(BaseModule):
         except requests.exceptions.InvalidURL:
             logs.logger.debug(f'Invalid URL: {url}')
         else:
-            with open(base_filename, 'wb') as fil:
-                fil.write('\n'.join([header + ': ' + value for header, value in response.headers.items()]).encode('utf8'))
-                fil.write('\n\n'.encode('utf8'))
-                fil.write(response.content)
+            request_header = 'REQUEST'
+            response_header = '\nRESPONSE'
+            request = response.request
+            output = [request_header, '=' * len(request_header), '\n', f'{request.method} {request.url}', '\n']
+            output.extend([header + ': ' + value for header, value in request.headers.items()])
+            output.extend([response_header, '=' * len(response_header), '\n'])
+            output.extend([header + ': ' + value for header, value in response.headers.items()])
+            output.append('\n')
+            output.append(response.content.decode(response.encoding))
+            pathlib.Path(base_filename).write_text('\n'.join(output))
             logs.logger.info(f'Saved {base_filename}')

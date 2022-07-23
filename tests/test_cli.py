@@ -23,7 +23,7 @@ def test_version(capsys):
 
 def test_cidr(http, tmp_dir):
     target_ip, _ = http
-    args = shlex.split(f'-N 127.0.0.1/32 -p 8000/http,8080/http,8443/https -o {tmp_dir} -w 1 -d')
+    args = shlex.split(f'-N 127.0.0.1/32 -p 8000/http,8080/http,8443/https -o {tmp_dir}')
     app = base.Application()
     app.parse(args)
     assert pathlib.Path(tmp_dir, 'responses', 'http-127.0.0.1-8000.txt').exists() is True
@@ -42,7 +42,7 @@ def test_cidr(http, tmp_dir):
 
 def test_range(http, tmp_dir):
     target_ip, _ = http
-    args = shlex.split(f'-N 127.0.0.1-127.0.0.5 -p 8000/http -o {tmp_dir} -w 1 -d')
+    args = shlex.split(f'-N 127.0.0.1-127.0.0.5 -p 8000/http -o {tmp_dir}')
     app = base.Application()
     app.parse(args)
     assert pathlib.Path(tmp_dir, 'responses', 'http-127.0.0.1-8000.txt').exists() is True
@@ -51,19 +51,69 @@ def test_range(http, tmp_dir):
     assert pathlib.Path(tmp_dir, 'screens', 'http-localhost-8000.png').exists() is True
 
 
-def test_file(http, tmp_dir, cwd):
+def test_file_hosts(http, tmp_dir, cwd):
     target_ip, _ = http
-    args = shlex.split(f'-T {cwd}/files/hosts.txt -o {tmp_dir}')
+    args = shlex.split(f'-H {cwd}/files/hosts.txt -o {tmp_dir} -p 8000/http,8443/https')
     app = base.Application()
     app.parse(args)
     assert pathlib.Path(tmp_dir, 'responses', 'http-127.0.0.1-8000.txt').exists() is True
-    assert pathlib.Path(tmp_dir, 'responses', 'https-127.0.0.1-9443.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'https-127.0.0.1-8443.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'https-127.0.0.1-9443').exists() is False
     assert pathlib.Path(tmp_dir, 'responses', 'http-localhost-8000.txt').exists() is True
-    assert pathlib.Path(tmp_dir, 'responses', 'https-localhost-9443.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'https-localhost-8443.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'https-localhost-9443').exists() is False
     assert pathlib.Path(tmp_dir, 'screens', 'http-127.0.0.1-8000.png').exists() is True
-    assert pathlib.Path(tmp_dir, 'screens', 'https-127.0.0.1-9443.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'https-127.0.0.1-8443.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'https-127.0.0.1-9443').exists() is False
     assert pathlib.Path(tmp_dir, 'screens', 'http-localhost-8000.png').exists() is True
-    assert pathlib.Path(tmp_dir, 'screens', 'https-localhost-9443.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'https-localhost-8443.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'https-localhost-9443').exists() is False
+
+
+def test_file_urls(http, tmp_dir, cwd):
+    target_ip, _ = http
+    args = shlex.split(f'-U {cwd}/files/urls.txt -o {tmp_dir}')
+    app = base.Application()
+    app.parse(args)
+    assert pathlib.Path(tmp_dir, 'responses', 'http-127.0.0.1-8000.txt').exists() is False
+    assert pathlib.Path(tmp_dir, 'responses', 'https-127.0.0.1-9443-6666cd76f96956469e7be39d750cc7d9.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'https-127.0.0.1-443.txt').exists() is False
+    assert pathlib.Path(tmp_dir, 'responses', 'https-127.0.0.1-8443.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'http-localhost-8000.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'https-127.0.0.1-9443-6666cd76f96956469e7be39d750cc7d9.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'https-localhost-443.txt').exists() is False
+    assert pathlib.Path(tmp_dir, 'responses', 'https-localhost-8443.txt').exists() is False
+    assert pathlib.Path(tmp_dir, 'screens', 'http-127.0.0.1-8000.png').exists() is False
+    assert pathlib.Path(tmp_dir, 'screens', 'https-127.0.0.1-9443-6666cd76f96956469e7be39d750cc7d9.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'https-127.0.0.1-443.png').exists() is False
+    assert pathlib.Path(tmp_dir, 'screens', 'https-127.0.0.1-8443.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'http-localhost-8000.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'https-127.0.0.1-9443-6666cd76f96956469e7be39d750cc7d9.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'https-localhost-443.png').exists() is False
+    assert pathlib.Path(tmp_dir, 'screens', 'https-localhost-8443.png').exists() is False
+
+
+def test_mixed_range_urls(http, tmp_dir, cwd):
+    target_ip, _ = http
+    args = shlex.split(f'-N 127.0.0.1-127.0.0.5 -p 80/http -U {cwd}/files/urls.txt -o {tmp_dir} -w 1')
+    app = base.Application()
+    app.parse(args)
+    assert pathlib.Path(tmp_dir, 'responses', 'http-127.0.0.1-80.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'http-127.0.0.1-80.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'http-127.0.0.1-80.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'http-127.0.0.1-80.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'https-127.0.0.1-9443-6666cd76f96956469e7be39d750cc7d9.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'https-127.0.0.1-443.txt').exists() is False
+    assert pathlib.Path(tmp_dir, 'responses', 'http-localhost-8000.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'http-127.0.0.1-8000.txt').exists() is False
+    assert pathlib.Path(tmp_dir, 'responses', 'https-localhost-9443-6666cd76f96956469e7be39d750cc7d9.txt').exists() is False
+    assert pathlib.Path(tmp_dir, 'responses', 'https-localhost-443.txt').exists() is False
+    assert pathlib.Path(tmp_dir, 'screens', 'https-127.0.0.1-9443-6666cd76f96956469e7be39d750cc7d9.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'https-127.0.0.1-443.png').exists() is False
+    assert pathlib.Path(tmp_dir, 'screens', 'http-localhost-8000.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'http-127.0.0.1-8000.png').exists() is False
+    assert pathlib.Path(tmp_dir, 'screens', 'https-localhost-9443-6666cd76f96956469e7be39d750cc7d9.png').exists() is False
+    assert pathlib.Path(tmp_dir, 'screens', 'https-localhost-443.png').exists() is False
 
 
 def test_ports(http, tmp_dir):
@@ -96,6 +146,21 @@ def test_ports_no_proto(http, tmp_dir):
     assert pathlib.Path(tmp_dir, 'screens', 'http-localhost-80.png').exists() is True
 
 
+def test_ports_no_proto_https(http, tmp_dir):
+    target_ip, _ = http
+    args = shlex.split(f'-N 127.0.0.1/32 -p 80/http,8443 -o {tmp_dir}')
+    app = base.Application()
+    app.parse(args)
+    assert pathlib.Path(tmp_dir, 'responses', 'https-127.0.0.1-8443.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'https-localhost-8443.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'https-127.0.0.1-8443.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'https-localhost-8443.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'http-127.0.0.1-80.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'responses', 'http-localhost-80.txt').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'http-127.0.0.1-80.png').exists() is True
+    assert pathlib.Path(tmp_dir, 'screens', 'http-localhost-80.png').exists() is True
+
+
 def test_skip_screens(http, tmp_dir):
     target_ip, _ = http
     args = shlex.split(f'-N 127.0.0.1/32 -p 8000/http -o {tmp_dir} --skip-screens')
@@ -116,7 +181,7 @@ def test_user_agent(http, tmp_dir):
 
 def test_invalid_network(http, tmp_dir):
     target_ip, _ = http
-    args = shlex.split(f'-N 127.0.0.1+32 -p 80/http,8000/http -o {tmp_dir} -d')
+    args = shlex.split(f'-N 127.0.0.1+32 -p 80/http,8000/http -o {tmp_dir}')
     app = base.Application()
     with pytest.raises(SystemExit) as exc:
         app.parse(args)

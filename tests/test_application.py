@@ -1,5 +1,3 @@
-import pytest
-
 from pukpuk import base
 
 
@@ -16,15 +14,19 @@ def test_get_discovery_targets(http, tmp_dir):
         (8080, 'http'),
         (8443, 'https'),
     )
-    assert app.get_discovery_targets(targets, services) == {
-        (target_ip, 8443, 'https'),
-        (target_ip, 8080, 'http'),
-        (target_ip, 8000, 'http'),
+    assert set(app.get_discovery_targets(targets, services)) == {
         (target_ip, 80, 'http'),
+        (target_ip, 8000, 'http'),
+        (target_ip, 8080, 'http'),
+        (target_ip, 8443, 'https'),
+        ('localhost', 80, 'http'),
+        ('localhost', 8000, 'http'),
+        ('localhost', 8080, 'http'),
+        ('localhost', 8443, 'https'),
     }
 
 
-def test_get_final_targets(http, tmp_dir):
+def test_get_discovery_targets_different(http, tmp_dir):
     target_ip, _ = http
     app = base.Application(output_dir=tmp_dir)
     targets = (
@@ -39,7 +41,7 @@ def test_get_final_targets(http, tmp_dir):
         (8443, 'https'),
         (9443, 'https'),
     )
-    assert set(app.get_final_targets(targets, services)) == {
+    assert set(app.get_discovery_targets(targets, services)) == {
         (target_ip, 80, 'http'),
         (target_ip, 443, 'https'),
         (target_ip, 8000, 'http'),

@@ -10,7 +10,7 @@ Pukpuk ("pook-pook") is a simple utility that stores screenshots and HTTP respon
 
 ## Requirements
 
-* Python 3.9, 3.10
+* Python 3.8, 3.9, 3.10
 * `chromium` (for screen grabbing functionality)
 
 ## Basic Usage
@@ -46,16 +46,17 @@ In case of larger scans and possibility of dealing with a firewall experiment wi
 ## CLI
 
 ```
-usage: pukpuk [-h] (-N NETWORK | -T TARGETS) [-p PORTS] [-b BROWSER] [-r] [-o OUTPUT_DIR] [-x SOCKS_PROXY] [-u USER_AGENT] [-w WORKERS] [--process-timeout PROCESS_TIMEOUT] [--socket-timeout SOCKET_TIMEOUT] [--skip-screens] [-v] [-d | -q]
+usage: pukpuk [-h] [-N NETWORK] [-H HOSTS] [-U URLS] [-p PORTS] [-b BROWSER] [-r] [-o OUTPUT_DIR] [-u USER_AGENT] [-w WORKERS] [--process-timeout PROCESS_TIMEOUT] [--socket-timeout SOCKET_TIMEOUT] [--skip-screens] [--grabbing-attempts GRABBING_ATTEMPTS] [-v] [-d | -q]
 
 HTTP discovery and change monitoring tool
 
 options:
   -h, --help            show this help message and exit
   -N NETWORK, --network NETWORK
-                        Discovery mode, accepts network in CIDR notation or an IP range, e.g. "10.0.0.0/24", "10.0.1.1-10.2.1.1"
-  -T TARGETS, --targets TARGETS
-                        Skip discovery, load URLs from a file
+                        Accepts network in CIDR notation or an IP range and performs discovery using ports in `-p`, e.g. "10.0.0.0/24", "10.0.1.1-10.2.1.1"
+  -H HOSTS, --hosts HOSTS
+                        Loads hosts from a file and performs discovery using ports in `-p`
+  -U URLS, --urls URLS  Loads specific URLs from a file, skips discovery and ignores the `-p` argument for these
   -p PORTS, --ports PORTS
                         Comma separated port list for HTTP service discovery [Default: 80/http, 443/https]
   -b BROWSER, --browser BROWSER
@@ -68,16 +69,26 @@ options:
   -w WORKERS, --workers WORKERS
                         Number of concurrent workers [Default: 15]
   --process-timeout PROCESS_TIMEOUT
-                        Process timeout in seconds [Default: 12]
+                        Process timeout in seconds [Default: 20]
   --socket-timeout SOCKET_TIMEOUT
-                        Socket timeout in seconds [Default: 2]
+                        Socket timeout in seconds [Default: 3]
   --skip-screens        Skip screen grabbing
+  --grabbing-attempts GRABBING_ATTEMPTS
+                        Number of screen grabbing attempts [Default: 3]
   -v, --version         Print version
   -d, --debug
   -q, --quiet
 ```
 
 ## Changelog
+
+### 3.2.0 (2022-08-05)
+
+* Improved screen capturing.
+* [NEW] CLI arguments changed, it is now possible to use multiple sources for targets, i.e. mix network range, list of URLs, hosts in a file.
+* [NEW] Several screen grabbing attempts (added argument) and a longer process timeout by default. Works better.
+* [NEW] If paths are provided in the URLs file, they will be hashed with md5 when saving output.
+* [NEW] HTTP request headers included with each individual file.
 
 ### 3.1.1 (2022-07-23)
 
