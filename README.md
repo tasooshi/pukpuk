@@ -25,7 +25,7 @@ Pukpuk ("pook-pook") is a simple utility that stores screenshots and HTTP respon
 
 ### Skip discovery and load URLs from a file
 
-    $ pukpuk -T urls.txt
+    $ pukpuk -U urls.txt
 
 ## Installation
 
