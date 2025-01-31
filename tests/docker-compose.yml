@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   http:
     build:
@@ -15,12 +14,9 @@ services:
       - ./dockers/http/server.py:/opt/server.py
       - ./dockers/http/server.pem:/opt/server.pem
     networks:
-      test:
-        ipv4_address: 192.168.2.2
+      - test
 networks:
   test:
     driver: bridge
     ipam:
       driver: default
-      config:
-        - subnet: 192.168.2.0/24

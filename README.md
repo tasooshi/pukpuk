@@ -10,7 +10,7 @@ Pukpuk ("pook-pook") is a simple utility that stores screenshots and HTTP respon
 
 ## Requirements
 
-* Python 3.8, 3.9, 3.10
+* Python 3.11, 3.12
 * `chromium` (for screen grabbing functionality)
 
 ## Basic Usage
@@ -81,6 +81,13 @@ options:
 ```
 
 ## Changelog
+
+### 3.2.1 (2025-01-31)
+
+* Switched to modern packaging.
+* Updated dependencies.
+* Print help when no arguments.
+* Tests and minor fixes.
 
 ### 3.2.0 (2022-08-05)
 

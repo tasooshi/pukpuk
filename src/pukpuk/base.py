@@ -11,9 +11,6 @@ import sys
 import threading
 from datetime import datetime
 
-import dns.exception
-import dns.resolver
-import dns.reversename
 import netaddr
 import requests
 import urllib3
@@ -69,7 +66,7 @@ class Application:
     OUTPUT_URLS_FILENAME = 'urls.txt'
     DEFAULT_BROWSER = 'chromium'
     DEFAULT_PORTS = ('80/http', '443/https')
-    DEFAULT_WORKERS = 15
+    DEFAULT_WORKERS = 24
     DEFAULT_PROCESS_TIMEOUT = 20
     DEFAULT_SOCKET_TIMEOUT = 3
     DEFAULT_GRABBING_ATTEMPTS = 3
@@ -77,29 +74,27 @@ class Application:
     def __init__(
         self,
         ports=None,
-        browser=None,
+        browser=DEFAULT_BROWSER,
         randomize=False,
         user_agent=None,
-        workers=None,
+        workers=DEFAULT_WORKERS,
         output_dir=None,
-        process_timeout=None,
-        socket_timeout=None,
+        process_timeout=DEFAULT_PROCESS_TIMEOUT,
+        socket_timeout=DEFAULT_SOCKET_TIMEOUT,
         skip_screens=False,
-        attempts=None
+        attempts=DEFAULT_GRABBING_ATTEMPTS
     ):
         self.patch()
-        self.browser = self.DEFAULT_BROWSER if browser is None else browser
+        self.browser = browser
         self.randomize = randomize
         self.skip_screens = skip_screens
         self.ports = list(self.DEFAULT_PORTS) if ports is None else ports
         self.finished = None
-        self.process_timeout = self.DEFAULT_PROCESS_TIMEOUT if process_timeout is None else process_timeout
-        self.socket_timeout = self.DEFAULT_SOCKET_TIMEOUT if socket_timeout is None else socket_timeout
+        self.process_timeout = process_timeout
+        self.socket_timeout = socket_timeout
         self.time_budget = int(self.process_timeout * 1000)
-        self.nameserver = dns.resolver.Resolver(configure=True)
-        self.nameserver.timeout = self.socket_timeout
-        self.workers = self.DEFAULT_WORKERS if workers is None else workers
-        self.attempts = self.DEFAULT_GRABBING_ATTEMPTS if attempts is None else attempts
+        self.workers = workers
+        self.attempts = attempts
         self.headers = requests.utils.default_headers()
         self.user_agent = self.headers['User-Agent'] if user_agent is None else user_agent
         self.output_dir = self.get_output_dir() if output_dir is None else output_dir
@@ -220,6 +215,8 @@ class Application:
 
         """
         sock = self.sock_connect(host, port)
+        if sock is None:
+            return self.PROTO_UNKNOWN
         request = 'HEAD / HTTP/1.0\r\nHost: {}\r\nAccept: text/html\r\n\r\n'.format(host)
         sock.sendall(request.encode('ascii'))
         check_https = False
@@ -296,18 +293,12 @@ class Application:
                 logs.logger.debug(f'`{host}` is not IP address')
             else:
                 try:
-                    response = self.nameserver.resolve_address(host)
-                except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.exception.Timeout):
+                    fqdn = socket.gethostbyaddr(host)[0]
+                except socket.herror:
                     logs.logger.debug(f'Could not resolve `{host}`')
                 else:
-                    try:
-                        fqdn = list(response.rrset.items.keys())[0].to_text().rstrip('.')
-                    except KeyError:
-                        pass
-                    else:
-                        fqdn_host = fqdn.lower()
-                        logs.logger.info(f'Added `{proto}://{fqdn_host}:{port}` to discoveries (from resolver)')
-                        self.discovered.add((fqdn_host, port, proto))
+                    logs.logger.info(f'Added `{proto}://{fqdn}:{port}` to discoveries (from resolver)')
+                    self.discovered.add((fqdn, port, proto))
             sock.close()
 
     def get_discovery_targets(self, targets, services):
@@ -378,36 +369,39 @@ class Application:
 
     def parse(self, args):
         parser = self.get_parser()
-        try:
-            parsed = parser.parse_args(args)
-        except ParserError as exc:
-            logs.logger.error(f'Error: {exc}')
-            sys.exit(errno.EINVAL)
-        pathlib.Path(parsed.output_dir).mkdir(parents=True, exist_ok=True)
-        logs.init(parsed.loglevel, parsed.output_dir)
-        self.browser = parsed.browser
-        self.randomize = parsed.randomize
-        self.attempts = parsed.grabbing_attempts
-        self.skip_screens = parsed.skip_screens
-        self.output_dir = parsed.output_dir
-        self.user_agent = parsed.user_agent
-        self.headers['User-Agent'] = self.user_agent
-        self.workers = parsed.workers
-        self.process_timeout = parsed.process_timeout
-        self.socket_timeout = parsed.socket_timeout
-        # NOTE: Skip discovery for URLs provided in a file
-        if parsed.urls:
-            self.urls.extend(self.urls_from_file(parsed.urls))
-        ports = parsed.ports.split(',')
-        services = [(int(service[0]), service[2]) for port in ports if (service := port.partition('/'))]
-        for service in services:
-            proto = service[1] if service[1] else self.PROTO_UNKNOWN
-            if proto and proto not in (self.PROTO_HTTP, self.PROTO_HTTPS):
-                logs.logger.error(f'Error: invalid service `{proto}`')
+        if not args:
+            parser.print_help()
+        else:
+            try:
+                parsed = parser.parse_args(args)
+            except ParserError as exc:
+                logs.logger.error(f'Error: {exc}')
                 sys.exit(errno.EINVAL)
-        targets = list()
-        if parsed.network:
-            targets.extend(self.targets_from_network(parsed.network))
-        if parsed.hosts:
-            targets.extend(self.targets_from_file(parsed.hosts))
-        self.run(targets, services)
+            pathlib.Path(parsed.output_dir).mkdir(parents=True, exist_ok=True)
+            logs.init(parsed.loglevel, parsed.output_dir)
+            self.browser = parsed.browser
+            self.randomize = parsed.randomize
+            self.attempts = parsed.grabbing_attempts
+            self.skip_screens = parsed.skip_screens
+            self.output_dir = parsed.output_dir
+            self.user_agent = parsed.user_agent
+            self.headers['User-Agent'] = self.user_agent
+            self.workers = parsed.workers
+            self.process_timeout = parsed.process_timeout
+            self.socket_timeout = parsed.socket_timeout
+            # NOTE: Skip discovery for URLs provided in a file
+            if parsed.urls:
+                self.urls.extend(self.urls_from_file(parsed.urls))
+            ports = parsed.ports.split(',')
+            services = [(int(service[0]), service[2]) for port in ports if (service := port.partition('/'))]
+            for service in services:
+                proto = service[1] if service[1] else self.PROTO_UNKNOWN
+                if proto and proto not in (self.PROTO_HTTP, self.PROTO_HTTPS):
+                    logs.logger.error(f'Error: invalid service `{proto}`')
+                    sys.exit(errno.EINVAL)
+            targets = list()
+            if parsed.network:
+                targets.extend(self.targets_from_network(parsed.network))
+            if parsed.hosts:
+                targets.extend(self.targets_from_file(parsed.hosts))
+            self.run(targets, services)

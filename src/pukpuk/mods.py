@@ -91,7 +91,7 @@ class Responses(BaseModule):
             logs.logger.debug(f'Invalid URL: {url}')
         else:
             request_header = 'REQUEST'
-            response_header = '\nRESPONSE'
+            response_header = '\n\nRESPONSE'
             request = response.request
             output = [request_header, '=' * len(request_header), '\n', f'{request.method} {request.url}', '\n']
             output.extend([header + ': ' + value for header, value in request.headers.items()])

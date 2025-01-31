@@ -1,24 +1,23 @@
 from pukpuk import base
 
 
-def test_get_discovery_targets(http, tmp_dir):
-    target_ip, _ = http
+def test_get_discovery_targets(tmp_dir):
     app = base.Application(output_dir=tmp_dir)
     targets = (
-        (target_ip, 8000, 'http'),
-        (target_ip, None, 'http'),
-        (target_ip, 8888, None),
-        (target_ip, 80, 'http'),
+        ('127.0.0.1', 8000, 'http'),
+        ('127.0.0.1', None, 'http'),
+        ('127.0.0.1', 8888, None),
+        ('127.0.0.1', 80, 'http'),
     )
     services = (
         (8080, 'http'),
         (8443, 'https'),
     )
     assert set(app.get_discovery_targets(targets, services)) == {
-        (target_ip, 80, 'http'),
-        (target_ip, 8000, 'http'),
-        (target_ip, 8080, 'http'),
-        (target_ip, 8443, 'https'),
+        ('127.0.0.1', 80, 'http'),
+        ('127.0.0.1', 8000, 'http'),
+        ('127.0.0.1', 8080, 'http'),
+        ('127.0.0.1', 8443, 'https'),
         ('localhost', 80, 'http'),
         ('localhost', 8000, 'http'),
         ('localhost', 8080, 'http'),
@@ -26,14 +25,13 @@ def test_get_discovery_targets(http, tmp_dir):
     }
 
 
-def test_get_discovery_targets_different(http, tmp_dir):
-    target_ip, _ = http
+def test_get_discovery_targets_different(tmp_dir):
     app = base.Application(output_dir=tmp_dir)
     targets = (
-        (target_ip, 8000, 'http'),
-        (target_ip, None, 'http'),
-        (target_ip, 8888, None),
-        (target_ip, 80, 'http'),
+        ('127.0.0.1', 8000, 'http'),
+        ('127.0.0.1', None, 'http'),
+        ('127.0.0.1', 8888, None),
+        ('127.0.0.1', 80, 'http'),
     )
     services = (
         (443, 'https'),
@@ -42,12 +40,12 @@ def test_get_discovery_targets_different(http, tmp_dir):
         (9443, 'https'),
     )
     assert set(app.get_discovery_targets(targets, services)) == {
-        (target_ip, 80, 'http'),
-        (target_ip, 443, 'https'),
-        (target_ip, 8000, 'http'),
-        (target_ip, 8080, 'http'),
-        (target_ip, 8443, 'https'),
-        (target_ip, 9443, 'https'),
+        ('127.0.0.1', 80, 'http'),
+        ('127.0.0.1', 443, 'https'),
+        ('127.0.0.1', 8000, 'http'),
+        ('127.0.0.1', 8080, 'http'),
+        ('127.0.0.1', 8443, 'https'),
+        ('127.0.0.1', 9443, 'https'),
         ('localhost', 8000, 'http'),
         ('localhost', 443, 'https'),
         ('localhost', 80, 'http'),

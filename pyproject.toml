@@ -1,0 +1,109 @@
+[build-system]
+
+requires = [
+    "setuptools",
+]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+
+name = "pukpuk"
+dynamic = ["version"]
+description = "HTTP discovery toolkit"
+authors = [{name = "tasooshi", email = "tasooshi@pm.me"}]
+readme = "README.md"
+requires-python = ">=3.12"
+keywords = [
+    "HTTP",
+    "discovery",
+    "scanning",
+]
+license = {text = "MIT License"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Topic :: Utilities",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "dnspython>=2.7.0",
+    "netaddr>=1.3.0",
+    "pillow>=11.1.0",
+    "pyopenssl>=25.0.0",
+    "requests>=2.32.3",
+]
+
+
+[project.urls]
+
+Source = "https://github.com/tasooshi/pukpuk/"
+
+
+[project.scripts]
+
+pukpuk = "pukpuk.cli:main"
+
+
+[tool.setuptools.dynamic]
+
+version = {attr = "pukpuk.version.__version__"}
+
+
+[tool.tox]
+
+requires = [
+    "tox",
+]
+env_list = [
+    "3.12",
+    "3.13",
+]
+
+
+[tool.tox.env_run_base]
+
+description = "Run test under {base_python}"
+commands = [
+    ["pytest"],
+]
+deps = [
+    "pytest",
+    "coverage",
+    "pytest-cov",
+    "pytest-docker",
+]
+
+
+[tool.pytest.ini_options]
+
+testpaths = ["tests"]
+pythonpath = "src"
+addopts = [
+    "-vv",
+    # "--capture=no",  # NOTE: Use for debugging inside the test cases.
+]
+
+[tool.coverage.run]
+
+source = ["src"]
+omit = ["tests", "src/pukpuk/version.py"]
+
+
+[tool.coverage.report]
+
+exclude_also = [
+    "logs.logger",
+]
+
+
+[dependency-groups]
+
+dev = [
+    "coverage>=7.6.10",
+    "pytest>=8.3.4",
+    "pytest-cov>=6.0.0",
+    "pytest-docker>=3.1.1",
+    "tox>=4.24.1",
+]
